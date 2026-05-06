@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пробив номеров — детектор с подсветкой операторов</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@400;700&display=swap" rel="stylesheet">
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+        --bg: #0d0f14; --bg2: #13161e; --bg3: #1a1e28;
+        --border: #2a2f3d; --border2: #3a4055;
+        --text: #e8eaf0; --text2: #8890a8; --text3: #555d78;
+        --accent: #4fffb0;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* HEADER */
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; background: var(--bg2); flex-wrap: wrap; }
+    .logo { font-family: 'Unbounded', sans-serif; font-size: 1rem; font-weight: 700; color: var(--accent); letter-spacing: -0.02em; }
+    .badge { background: rgba(79,255,176,0.12); color: var(--accent); font-size: 0.65rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; border: 1px solid #00c97a; }
+
+    /* TABS */
+    .tabs-bar { display: flex; align-items: center; gap: 0; background: var(--bg2); border-bottom: 1px solid var(--border); overflow-x: auto; padding: 0 8px; min-height: 44px; scrollbar-width: none; }
+    .tabs-bar::-webkit-scrollbar { display: none; }
+    .tab { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-right: 1px solid var(--border); cursor: pointer; font-size: 0.75rem; color: var(--text2); white-space: nowrap; min-height: 44px; transition: all 0.15s; position: relative; }
+    .tab:hover { background: var(--bg3); color: var(--text); }
+    .tab.active { background: var(--bg); color: var(--accent); border-bottom: 2px solid var(--accent); }
+    .tab-label { outline: none; background: transparent; border: none; color: inherit; font-family: monospace; font-size: 0.75rem; cursor: pointer; max-width: 130px; }
+    .tab.active .tab-label { cursor: text; color: var(--accent); }
+    .tab-close { opacity: 0.4; font-size: 0.8rem; cursor: pointer; padding: 0 2px; border: none; background: transparent; color: inherit; line-height: 1; }
+    .tab-close:hover { opacity: 1; color: #ff6b6b; }
+    .tab-add { margin-left: 6px; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 0.8rem; white-space: nowrap; transition: 0.1s; }
+    .tab-add:hover { background: var(--accent); color: #0d0f14; border-color: var(--accent); }
+    .tab-count { background: rgba(79,255,176,0.15); color: var(--accent); font-size: 0.6rem; padding: 1px 6px; border-radius: 999px; font-weight: 700; }
+
+    /* LAYOUT */
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 0; flex: 1; min-height: 0; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-height: 0; }
+    .panel:last-child { border-right: none; }
+    .panel-header { padding: 0.8rem 1.2rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.6rem; background: var(--bg2); flex-shrink: 0; flex-wrap: wrap; }
+    .panel-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text2); }
+
+    /* EDITOR */
+    .contenteditable {
+        flex: 1; min-height: 380px; background: var(--bg); color: var(--text);
+        border: none; outline: none; padding: 1.2rem 1.5rem;
+        font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; line-height: 1.75;
+        overflow-y: auto; white-space: pre-wrap; word-break: break-word; max-height: 60vh;
+    }
+
+    /* PHONE HIGHLIGHTS */
+    .phone-highlight {
+        display: inline; padding: 2px 7px; margin: 0 1px;
+        border-radius: 20px; font-weight: 600; cursor: pointer;
+        transition: all 0.15s ease; border: 1px solid transparent;
+        position: relative;
+    }
+    .phone-highlight:hover { filter: brightness(1.2); box-shadow: 0 0 0 1px currentColor; }
+    .phone-highlight.highlighted-find {
+        outline: 3px solid #ffe04f;
+        outline-offset: 2px;
+        border-radius: 12px;
+        animation: findPulse 0.6s ease 3;
+    }
+    @keyframes findPulse {
+        0%,100% { box-shadow: 0 0 0 0 #ffe04f88; }
+        50% { box-shadow: 0 0 0 8px #ffe04f00; }
+    }
+
+    /* RESULTS */
+    .results-wrap { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; overflow-y: auto; flex: 1; max-height: 60vh; }
+    .phone-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; position: relative; transition: border-color 0.15s; }
+    .phone-card::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--card-color); border-radius: 4px; }
+    .phone-number { color: var(--card-color); cursor: pointer; font-weight: 700; font-size: 0.9rem; letter-spacing: -0.2px; }
+    .operator-tag { font-size: 0.58rem; padding: 2px 10px; border-radius: 999px; background: var(--op-bg); color: var(--op-color); border: 1px solid var(--op-border); font-weight: 600; }
+    .status-tag { font-size: 0.6rem; padding: 2px 8px; border-radius: 30px; font-weight: 600; }
+
+    /* STATUS BUTTONS */
+    .status-selector { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .status-btn { background: transparent; border: 1px solid; color: inherit; border-radius: 20px; cursor: pointer; font-family: monospace; font-size: 0.65rem; padding: 3px 9px; font-weight: 600; transition: all 0.1s; display: flex; align-items: center; gap: 4px; }
+    .status-btn:hover { opacity: 0.85; }
+    .status-btn.active { background: rgba(255,255,255,0.1); box-shadow: 0 0 0 1px currentColor inset; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* FIND BUTTON */
+    .find-btn { font-size: 0.65rem; padding: 4px 11px; background: #1f2433; border: 1px solid var(--border2); color: var(--text2); border-radius: 16px; cursor: pointer; font-family: monospace; font-weight: 600; transition: 0.1s; }
+    .find-btn:hover { background: var(--accent); color: #0d0f14; border-color: var(--accent); }
+
+    /* STATS BOTTOM */
+    .stats-bar { padding: 0.75rem 1.5rem; background: var(--bg2); border-top: 1px solid var(--border); font-size: 0.75rem; display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: center; flex-shrink: 0; }
+    .bottom-stats { padding: 1rem 1.5rem; background: var(--bg2); border-top: 1px solid var(--border); font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 24px; }
+    .stat-bar { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 4px; }
+    .bar-container { flex: 1; height: 6px; background: #1f2433; border-radius: 999px; overflow: hidden; }
+    .bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+
+    .operator-stats-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    .operator-brick { background: #1a1e28; border-radius: 32px; padding: 4px 14px; display: flex; align-items: center; gap: 8px; font-size: 0.72rem; border-left: 3px solid; }
+
+    /* MODAL OVERLAY */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; padding: 1.5rem; min-width: 280px; max-width: 400px; }
+    .modal h3 { color: var(--accent); font-family: 'Unbounded', sans-serif; font-size: 0.85rem; margin-bottom: 1rem; }
+    .modal input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); border-radius: 8px; padding: 8px 12px; font-family: monospace; font-size: 0.85rem; outline: none; }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-btns { display: flex; gap: 10px; margin-top: 1rem; }
+    .modal-btns button { flex: 1; padding: 8px; border-radius: 8px; border: none; cursor: pointer; font-family: monospace; font-size: 0.8rem; font-weight: 700; }
+    .btn-confirm { background: var(--accent); color: #0d0f14; }
+    .btn-cancel { background: var(--bg3); color: var(--text2); border: 1px solid var(--border2) !important; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg3); border: 1px solid var(--accent); color: var(--accent); padding: 10px 18px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px); transition: all 0.25s ease; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    button { cursor: pointer; }
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">SKL-Блокнот<span style="font-weight:400"> · Детектор номеров РФ</span></div>
+    <div class="badge">операторы + статусы</div>
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+        <button onclick="exportData()" style="background:#1f2433; border:1px solid var(--border2); color:var(--text2); border-radius:8px; padding:5px 12px; font-size:0.7rem; font-family:monospace;">💾 Экспорт</button>
+    </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs-bar" id="tabsBar">
+    <!-- динамически -->
+    <button class="tab-add" onclick="createNewNotebook()">+ Новый блокнот</button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="layout">
+    <!-- ЛЕВАЯ ПАНЕЛЬ: БЛОКНОТ -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">📝 Блокнот</div>
+            <div id="notebookName" style="color:var(--accent); font-size:0.7rem; font-weight:700;"></div>
+        </div>
+        <div id="editable" class="contenteditable" contenteditable="true" spellcheck="false"></div>
+        <div class="stats-bar">
+            <div>📄 Символов: <span id="charCount">0</span></div>
+            <div>📞 Номеров: <span id="foundCount">0</span></div>
+            <div style="color:var(--accent); font-size:0.7rem;">🎨 клик по номеру → статус</div>
+        </div>
+    </div>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ: КАРТОЧКИ -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">📋 Список номеров</div>
+            <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+                <div id="resultCount" style="background:rgba(79,255,176,0.15); color:#4fffb0; padding:2px 10px; border-radius:999px; font-size:0.72rem; font-weight:700;">0</div>
+            </div>
+        </div>
+        <div class="results-wrap" id="results"></div>
+    </div>
+</div>
+
+<!-- НИЖНЯЯ ДИАГРАММА -->
+<div class="bottom-stats" id="bottomStats"></div>
+
+<!-- MODAL: переименовать вкладку -->
+<div class="modal-overlay" id="renameModal">
+    <div class="modal">
+        <h3>✏️ Переименовать блокнот</h3>
+        <input type="text" id="renameInput" placeholder="Название блокнота..." maxlength="30">
+        <div class="modal-btns">
+            <button class="btn-confirm" onclick="confirmRename()">Сохранить</button>
+            <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// ОПЕРАТОРЫ
+// =====================================================
+const OPERATORS = {
+    910:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 911:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    912:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 913:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    914:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 915:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    916:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 917:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    918:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 919:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    980:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 981:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    982:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 983:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    984:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 985:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    986:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 987:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    988:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'], 989:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
+    900:['Билайн','#f5a623','#f5a62322','#f5a62399'], 901:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    902:['Билайн','#f5a623','#f5a62322','#f5a62399'], 903:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    904:['Билайн','#f5a623','#f5a62322','#f5a62399'], 905:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    906:['Билайн','#f5a623','#f5a62322','#f5a62399'], 907:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    908:['Билайн','#f5a623','#f5a62322','#f5a62399'], 909:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    960:['Билайн','#f5a623','#f5a62322','#f5a62399'], 961:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    962:['Билайн','#f5a623','#f5a62322','#f5a62399'], 963:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    964:['Билайн','#f5a623','#f5a62322','#f5a62399'], 965:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    966:['Билайн','#f5a623','#f5a62322','#f5a62399'], 967:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    968:['Билайн','#f5a623','#f5a62322','#f5a62399'], 969:['Билайн','#f5a623','#f5a62322','#f5a62399'],
+    920:['Мегафон','#00b060','#00b06022','#00b06099'], 921:['Мегафон','#00b060','#00b06022','#00b06099'],
+    922:['Мегафон','#00b060','#00b06022','#00b06099'], 923:['Мегафон','#00b060','#00b06022','#00b06099'],
+    924:['Мегафон','#00b060','#00b06022','#00b06099'], 925:['Мегафон','#00b060','#00b06022','#00b06099'],
+    926:['Мегафон','#00b060','#00b06022','#00b06099'], 927:['Мегафон','#00b060','#00b06022','#00b06099'],
+    928:['Мегафон','#00b060','#00b06022','#00b06099'], 929:['Мегафон','#00b060','#00b06022','#00b06099'],
+    930:['Мегафон','#00b060','#00b06022','#00b06099'], 931:['Мегафон','#00b060','#00b06022','#00b06099'],
+    932:['Мегафон','#00b060','#00b06022','#00b06099'], 933:['Мегафон','#00b060','#00b06022','#00b06099'],
+    934:['Мегафон','#00b060','#00b06022','#00b06099'], 935:['Мегафон','#00b060','#00b06022','#00b06099'],
+    936:['Мегафон','#00b060','#00b06022','#00b06099'], 937:['Мегафон','#00b060','#00b06022','#00b06099'],
+    938:['Мегафон','#00b060','#00b06022','#00b06099'], 939:['Мегафон','#00b060','#00b06022','#00b06099'],
+    950:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 951:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    952:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 953:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    954:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 955:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    956:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 957:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    958:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 959:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    990:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 991:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    992:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 993:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    994:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 995:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    996:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 997:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+    998:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'], 999:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
+};
+
+function getOperatorInfo(norm) {
+    const code = parseInt(norm.slice(1, 4));
+    if (OPERATORS[code]) return OPERATORS[code];
+    if ((code >= 910 && code <= 919) || (code >= 980 && code <= 989)) return ['МТС','#ff3c5f','#ff3c5f22','#ff3c5f99'];
+    if (code >= 900 && code <= 909) return ['Билайн','#f5a623','#f5a62322','#f5a62399'];
+    if (code >= 920 && code <= 939) return ['Мегафон','#00b060','#00b06022','#00b06099'];
+    if ((code >= 950 && code <= 959) || (code >= 990 && code <= 999)) return ['Теле2','#4fbfff','#4fbfff22','#4fbfff99'];
+    return ['Неизвестен','#8890a8','#8890a822','#8890a899'];
+}
+
+function getOperatorColorByName(name) {
+    if (name === 'МТС') return '#ff3c5f';
+    if (name === 'Билайн') return '#f5a623';
+    if (name === 'Мегафон') return '#00b060';
+    if (name === 'Теле2') return '#4fbfff';
+    return '#8890a8';
+}
+
+// =====================================================
+// СТАТУСЫ (расширенный список)
+// =====================================================
+const STATUS_LIST = [
+    { key: 'ne_zvonili', label: 'Не звонил (он 1-й)', color: '#c8a8ff' },
+    { key: 'neprobil',   label: 'Не пробил',          color: '#4fffb0' },
+    { key: 'ndz',        label: 'НДЗ',                color: '#4fbfff' },
+    { key: 'skip',       label: 'Скип',               color: '#ffe04f' },
+    { key: 'srez',       label: 'Срез',               color: '#ff6b6b' },
+    { key: 'dok',        label: 'ДОК',                color: '#bf4fff' },
+    { key: 'ne_rabotaet',label: 'Не работает',        color: '#ff9a4f' },
+    { key: 'drugoe',     label: 'Другое',             color: '#8890a8' },
+];
+
+// =====================================================
+// ДАННЫЕ: несколько блокнотов
+// =====================================================
+const STORAGE_KEY = 'probiv_v3_data';
+
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return null;
+}
+
+function saveState() {
+    try {
+        const state = {
+            notebooks,
+            activeNotebookId
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch(e) {}
+}
+
+let notebooks = [];      // [{ id, name, text, statuses: {norm: key} }]
+let activeNotebookId = null;
+let renameTargetId = null;
+let currentPhonesList = [];
+
+function getActiveNotebook() {
+    return notebooks.find(n => n.id === activeNotebookId) || notebooks[0];
+}
+
+function createNotebook(name) {
+    const id = 'nb_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const nb = { id, name: name || `Блокнот ${notebooks.length + 1}`, text: '', statuses: {} };
+    notebooks.push(nb);
+    return nb;
+}
+
+// =====================================================
+// УТИЛИТЫ
+// =====================================================
+function normalizePhone(raw) {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) return '7' + digits.slice(1);
+    if (digits.length === 10) return '7' + digits;
+    return null;
+}
+
+function formatPhone(norm) {
+    if (!norm || norm.length !== 11) return norm;
+    return `+7 (${norm.slice(1,4)}) ${norm.slice(4,7)}-${norm.slice(7,9)}-${norm.slice(9)}`;
+}
+
+function getPhoneRegex() {
+    return /(?:\+7|8|7)[\s\-(]?\d{3}[\s\-)]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g;
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// =====================================================
+// TABS RENDER
+// =====================================================
+function renderTabs() {
+    const bar = document.getElementById('tabsBar');
+    const addBtn = bar.querySelector('.tab-add');
+    // Удаляем все табы, кроме кнопки добавить
+    bar.querySelectorAll('.tab').forEach(t => t.remove());
+
+    notebooks.forEach(nb => {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (nb.id === activeNotebookId ? ' active' : '');
+        tab.dataset.id = nb.id;
+
+        const count = countPhones(nb.text);
+
+        tab.innerHTML = `
+            <span class="tab-label" contenteditable="${nb.id === activeNotebookId ? 'true' : 'false'}" 
+                  id="label_${nb.id}"
+                  spellcheck="false"
+                  onblur="renameNotebookInline(event, '${nb.id}')"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                  onclick="event.stopPropagation();"
+            >${escapeHtml(nb.name)}</span>
+            ${count > 0 ? `<span class="tab-count">${count}</span>` : ''}
+            ${notebooks.length > 1 ? `<button class="tab-close" onclick="event.stopPropagation(); deleteNotebook('${nb.id}')" title="Закрыть">×</button>` : ''}
+        `;
+        tab.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab-close')) return;
+            if (e.target.classList.contains('tab-label') && nb.id === activeNotebookId) return;
+            switchToNotebook(nb.id);
+        });
+
+        bar.insertBefore(tab, addBtn);
+    });
+}
+
+function countPhones(text) {
+    const regex = getPhoneRegex();
+    const matches = text.match(regex);
+    if (!matches) return 0;
+    const unique = new Set();
+    matches.forEach(m => { const n = normalizePhone(m); if(n) unique.add(n); });
+    return unique.size;
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renameNotebookInline(event, id) {
+    const label = event.target;
+    const newName = label.textContent.trim();
+    const nb = notebooks.find(n => n.id === id);
+    if (nb && newName) {
+        nb.name = newName;
+        saveState();
+        renderTabs();
+    }
+}
+
+// =====================================================
+// NOTEBOOK MANAGEMENT
+// =====================================================
+function createNewNotebook() {
+    const nb = createNotebook(`Блокнот ${notebooks.length + 1}`);
+    activeNotebookId = nb.id;
+    saveState();
+    renderTabs();
+    loadNotebookIntoEditor(nb);
+    showToast(`✅ Создан: ${nb.name}`);
+}
+
+function switchToNotebook(id) {
+    // Сохраняем текущий текст
+    saveCurrentEditorText();
+    activeNotebookId = id;
+    saveState();
+    const nb = notebooks.find(n => n.id === id);
+    if (nb) loadNotebookIntoEditor(nb);
+    renderTabs();
+}
+
+function deleteNotebook(id) {
+    if (notebooks.length <= 1) { showToast('❌ Нельзя удалить последний блокнот'); return; }
+    if (!confirm('Удалить этот блокнот?')) return;
+    const idx = notebooks.findIndex(n => n.id === id);
+    notebooks.splice(idx, 1);
+    if (activeNotebookId === id) {
+        activeNotebookId = notebooks[Math.max(0, idx - 1)].id;
+    }
+    saveState();
+    renderTabs();
+    const nb = getActiveNotebook();
+    loadNotebookIntoEditor(nb);
+    showToast('🗑 Блокнот удалён');
+}
+
+function saveCurrentEditorText() {
+    const editor = document.getElementById('editable');
+    const nb = getActiveNotebook();
+    if (nb) nb.text = editor.innerText;
+}
+
+function loadNotebookIntoEditor(nb) {
+    const editor = document.getElementById('editable');
+    editor.innerText = nb.text;
+    document.getElementById('notebookName').textContent = nb.name;
+    parseAndUpdate();
+}
+
+// =====================================================
+// MODAL RENAME (запасной вариант)
+// =====================================================
+function openRenameModal(id) {
+    renameTargetId = id;
+    const nb = notebooks.find(n => n.id === id);
+    document.getElementById('renameInput').value = nb ? nb.name : '';
+    document.getElementById('renameModal').classList.add('open');
+    setTimeout(() => document.getElementById('renameInput').focus(), 50);
+    document.getElementById('renameInput').onkeydown = (e) => { if(e.key==='Enter') confirmRename(); };
+}
+
+function confirmRename() {
+    const val = document.getElementById('renameInput').value.trim();
+    if (val && renameTargetId) {
+        const nb = notebooks.find(n => n.id === renameTargetId);
+        if (nb) { nb.name = val; saveState(); renderTabs(); }
+    }
+    closeModal();
+}
+
+function closeModal() {
+    document.getElementById('renameModal').classList.remove('open');
+    renameTargetId = null;
+}
+
+document.getElementById('renameModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('renameModal')) closeModal();
+});
+
+// =====================================================
+// ПОДСВЕТКА В РЕДАКТОРЕ
+// =====================================================
+function highlightPhonesInEditor() {
+    const editor = document.getElementById('editable');
+    // Сохраняем позицию курсора
+    const sel = window.getSelection();
+    let savedRange = null;
+    if (sel && sel.rangeCount > 0) {
+        savedRange = sel.getRangeAt(0).cloneRange();
+    }
+
+    const plainText = editor.innerText;
+    const phoneRegex = getPhoneRegex();
+
+    let newHtml = plainText.replace(phoneRegex, (match) => {
+        const norm = normalizePhone(match);
+        if (!norm) return escapeHtml(match);
+        const op = getOperatorInfo(norm);
+        return `<span class="phone-highlight" style="background:${op[2]}; color:${op[1]}; border-color:${op[3]};" data-norm="${norm}" onclick="showPhoneStatusPopup('${norm}')">${escapeHtml(match)}</span>`;
+    });
+
+    // Заменяем переносы строк на <br>
+    newHtml = newHtml.replace(/\n/g, '<br>');
+
+    if (editor.innerHTML !== newHtml) {
+        editor.innerHTML = newHtml;
+    }
+}
+
+// =====================================================
+// ПОИСК В БЛОКНОТЕ — РАБОЧИЙ ВАРИАНТ
+// =====================================================
+window.findInEditorText = function(norm) {
+    const editor = document.getElementById('editable');
+
+    // Убираем предыдущую подсветку
+    editor.querySelectorAll('.phone-highlight.highlighted-find').forEach(el => {
+        el.classList.remove('highlighted-find');
+    });
+
+    // Ищем span с нужным data-norm
+    const target = editor.querySelector(`.phone-highlight[data-norm="${norm}"]`);
+
+    if (target) {
+        // Прокручиваем к нему
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Добавляем класс подсветки
+        target.classList.add('highlighted-find');
+        // Убираем через 2.5 сек
+        setTimeout(() => target.classList.remove('highlighted-find'), 2500);
+        showToast(`🔍 Найден: ${formatPhone(norm)}`);
+    } else {
+        showToast('❌ Номер не найден в тексте');
+    }
+};
+
+// =====================================================
+// КЛИК ПО НОМЕРУ В РЕДАКТОРЕ
+// =====================================================
+window.showPhoneStatusPopup = function(norm) {
+    const nb = getActiveNotebook();
+    const currentStatusKey = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
+    const statusObj = STATUS_LIST.find(s => s.key === currentStatusKey);
+    const opInfo = getOperatorInfo(norm);
+    // Скроллим к карточке в правой панели
+    const card = document.querySelector(`[data-card-norm="${norm}"]`);
+    if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.outline = '2px solid var(--accent)';
+        setTimeout(() => card.style.outline = '', 1500);
+    }
+    showToast(`📞 ${formatPhone(norm)} · ${opInfo[0]} · ${statusObj ? statusObj.label : '?'}`);
+};
+
+// =====================================================
+// СТАТУС: установить
+// =====================================================
+window.setPhoneStatus = function(norm, statusKey) {
+    const nb = getActiveNotebook();
+    if (!nb.statuses) nb.statuses = {};
+    nb.statuses[norm] = statusKey;
+    saveState();
+    renderResultsPanel(currentPhonesList);
+    renderBottomStatsChart(currentPhonesList);
+    renderTabs();
+};
+
+// =====================================================
+// ПРАВАЯ ПАНЕЛЬ: карточки
+// =====================================================
+function renderResultsPanel(phones) {
+    const container = document.getElementById('results');
+    const countSpan = document.getElementById('resultCount');
+    countSpan.textContent = phones.length;
+
+    if (!phones.length) {
+        container.innerHTML = `<div class="empty-state">🔍 Вставьте текст с номерами телефонов<br>в блокнот слева</div>`;
+        return;
+    }
+
+    const nb = getActiveNotebook();
+    let cardsHtml = '';
+
+    for (let ph of phones) {
+        const norm = ph.norm;
+        const op = getOperatorInfo(norm);
+        const currentStatus = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
+        const statusObj = STATUS_LIST.find(s => s.key === currentStatus) || STATUS_LIST[0];
+
+        let statusButtons = STATUS_LIST.map(st => {
+            const isActive = st.key === currentStatus;
+            return `<button class="status-btn ${isActive ? 'active' : ''}" 
+                        style="color:${st.color}; border-color:${st.color}40;" 
+                        onclick="setPhoneStatus('${norm}', '${st.key}')">
+                        <span class="status-dot" style="background:${st.color}"></span>${st.label}
+                    </button>`;
+        }).join('');
+
+        cardsHtml += `
+            <div class="phone-card" data-card-norm="${norm}" 
+                 style="--card-color:${op[1]}; --op-bg:${op[2]}; --op-color:${op[1]}; --op-border:${op[3]}">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span class="phone-number">📞 ${formatPhone(norm)}</span>
+                    <span class="operator-tag">${op[0]}</span>
+                    <span class="status-tag" style="background:${statusObj.color}22; color:${statusObj.color}; border:1px solid ${statusObj.color}44;">
+                        ${statusObj.label}
+                    </span>
+                    <button class="find-btn" onclick="findInEditorText('${norm}')" style="margin-left:auto;">
+                        🔍 Найти в блокноте
+                    </button>
+                </div>
+                <div class="status-selector">${statusButtons}</div>
+            </div>`;
+    }
+
+    container.innerHTML = cardsHtml;
+}
+
+// =====================================================
+// НИЖНЯЯ СТАТИСТИКА
+// =====================================================
+function renderBottomStatsChart(phones) {
+    const container = document.getElementById('bottomStats');
+    if (!phones.length) { container.innerHTML = ''; return; }
+
+    const nb = getActiveNotebook();
+    const opMap = new Map();
+    const statusCount = {};
+    STATUS_LIST.forEach(s => statusCount[s.key] = 0);
+
+    for (let ph of phones) {
+        const opName = getOperatorInfo(ph.norm)[0];
+        opMap.set(opName, (opMap.get(opName) || 0) + 1);
+        const st = (nb.statuses && nb.statuses[ph.norm]) || 'ne_zvonili';
+        if (statusCount.hasOwnProperty(st)) statusCount[st]++;
+    }
+
+    const total = phones.length;
+
+    let opHtml = `<div style="flex:1; min-width:200px;"><strong style="font-size:0.78rem;">📊 Операторы</strong><div class="operator-stats-grid">`;
+    for (let [op, cnt] of opMap.entries()) {
+        const pct = total ? Math.round((cnt/total)*100) : 0;
+        opHtml += `<div class="operator-brick" style="border-left-color:${getOperatorColorByName(op)}">
+                    <span>${op}</span><strong>${cnt}</strong><span style="color:#8890a8;">${pct}%</span>
+                   </div>`;
+    }
+    opHtml += `</div></div>`;
+
+    let statusHtml = `<div style="flex:2; min-width:280px;"><strong style="font-size:0.78rem;">🏷 Статусы</strong><div style="margin-top:10px;">`;
+    STATUS_LIST.forEach(st => {
+        const cnt = statusCount[st.key];
+        const pct = total ? (cnt / total) * 100 : 0;
+        statusHtml += `
+            <div class="stat-bar">
+                <span style="width:145px; color:${st.color}; font-weight:600; font-size:0.7rem;">${st.label}</span>
+                <div class="bar-container"><div class="bar" style="width:${pct}%; background:${st.color}"></div></div>
+                <span style="width:32px; text-align:right; font-weight:700;">${cnt}</span>
+                <span style="width:40px; text-align:right; font-size:0.65rem; color:var(--text2);">${Math.round(pct)}%</span>
+            </div>`;
+    });
+    statusHtml += `</div></div>`;
+
+    container.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:28px; width:100%;">${opHtml}${statusHtml}</div>`;
+}
+
+// =====================================================
+// ПАРСИНГ ТЕКСТА
+// =====================================================
+function parseAndUpdate() {
+    const editor = document.getElementById('editable');
+    const rawText = editor.innerText;
+
+    document.getElementById('charCount').textContent = rawText.length;
+
+    const phoneRegex = getPhoneRegex();
+    const uniqueMap = new Map();
+    let match;
+    while ((match = phoneRegex.exec(rawText)) !== null) {
+        const norm = normalizePhone(match[0]);
+        if (norm && !uniqueMap.has(norm)) uniqueMap.set(norm, match[0]);
+    }
+
+    const phonesArray = Array.from(uniqueMap.entries()).map(([norm, rawStr]) => ({ norm, rawStr }));
+    currentPhonesList = phonesArray;
+
+    document.getElementById('foundCount').textContent = phonesArray.length;
+
+    const nb = getActiveNotebook();
+    if (!nb.statuses) nb.statuses = {};
+
+    // Проставляем дефолтный статус для новых номеров
+    for (let ph of phonesArray) {
+        if (!nb.statuses.hasOwnProperty(ph.norm)) {
+            nb.statuses[ph.norm] = 'ne_zvonili';
+        }
+    }
+    // Удаляем статусы исчезнувших номеров
+    for (let norm in nb.statuses) {
+        if (!phonesArray.some(p => p.norm === norm)) delete nb.statuses[norm];
+    }
+
+    nb.text = rawText;
+    saveState();
+
+    highlightPhonesInEditor();
+    renderResultsPanel(phonesArray);
+    renderBottomStatsChart(phonesArray);
+    renderTabs();
+}
+
+// =====================================================
+// ЭКСПОРТ
+// =====================================================
+window.exportData = function() {
+    const nb = getActiveNotebook();
+    const lines = [`=== ${nb.name} ===`, ''];
+    const rawText = nb.text;
+    const phoneRegex = getPhoneRegex();
+    const found = new Map();
+    let m;
+    while ((m = phoneRegex.exec(rawText)) !== null) {
+        const norm = normalizePhone(m[0]);
+        if (norm && !found.has(norm)) found.set(norm, m[0]);
+    }
+    found.forEach((_, norm) => {
+        const op = getOperatorInfo(norm);
+        const statusKey = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
+        const statusObj = STATUS_LIST.find(s => s.key === statusKey);
+        lines.push(`${formatPhone(norm)}\t${op[0]}\t${statusObj ? statusObj.label : '?'}`);
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${nb.name.replace(/[^а-яёa-z0-9]/gi,'_')}_${Date.now()}.txt`;
+    a.click();
+    showToast('💾 Экспорт готов!');
+};
+
+// =====================================================
+// DEBOUNCE INPUT
+// =====================================================
+let debounceTimer;
+function onEditorInput() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(parseAndUpdate, 80);
+}
+
+// =====================================================
+// ИНИЦИАЛИЗАЦИЯ
+// =====================================================
+window.onload = () => {
+    // Загружаем из localStorage
+    const saved = loadState();
+    if (saved && saved.notebooks && saved.notebooks.length > 0) {
+        notebooks = saved.notebooks;
+        activeNotebookId = saved.activeNotebookId;
+        // Проверяем что activeNotebookId существует
+        if (!notebooks.find(n => n.id === activeNotebookId)) {
+            activeNotebookId = notebooks[0].id;
+        }
+    } else {
+        // Создаём первый блокнот по умолчанию
+        const nb = createNotebook('Блокнот 1');
+        nb.text = `+7 (916) 123-45-67\n8-905-777-88-99\n+79261234567\n89501234567`;
+        activeNotebookId = nb.id;
+        saveState();
+    }
+
+    renderTabs();
+
+    const nb = getActiveNotebook();
+    const editor = document.getElementById('editable');
+    editor.innerText = nb.text;
+    document.getElementById('notebookName').textContent = nb.name;
+
+    editor.addEventListener('input', onEditorInput);
+    editor.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+        onEditorInput();
+    });
+
+    // Сохраняем текст при переключении вкладок/закрытии
+    window.addEventListener('beforeunload', saveCurrentEditorText);
+
+    parseAndUpdate();
+};
+</script>
+</body>
+</html>
