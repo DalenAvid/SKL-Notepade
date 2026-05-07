@@ -120,8 +120,16 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
 .tab-add-btn:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 
 /* ─── LAYOUT ────────────────────────────────────── */
-.layout { display: grid; grid-template-columns: var(--split, 50%) 1fr; flex: 1; min-height: 0; position: relative; }
-@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+.layout {
+  display: grid;
+  grid-template-columns: var(--split, 50%) 1fr;
+  /* Фиксированная высота 1000px для обеих панелей */
+  height: 1000px;
+  flex-shrink: 0;
+  position: relative;
+}
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; height: auto; } }
+
 .resizer {
   position: absolute; top: 0; bottom: 0;
   left: var(--split, 50%);
@@ -139,17 +147,34 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
   transition: opacity 0.15s; pointer-events: none;
 }
 .resizer:hover::after, .resizer.dragging::after { opacity: 1; }
-.panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-height: 0; }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  /* Панель занимает всю высоту layout */
+  height: 1000px;
+  overflow: hidden;
+}
 .panel:last-child { border-right: none; }
 .panel-header { padding: 0.7rem 1.2rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.6rem; background: var(--bg2); flex-shrink: 0; flex-wrap: wrap; }
 .panel-title { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text2); }
 
 /* ─── EDITOR ────────────────────────────────────── */
 .contenteditable {
-  flex: 1; background: var(--bg); color: var(--text); border: none; outline: none;
-  padding: 1.1rem 1.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.87rem;
-  line-height: 1.8; overflow-y: auto; word-break: break-word;
-  min-height: 200px; height: 0; /* grows with wrap, scrolls inside fixed-height wrap */
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: none;
+  outline: none;
+  padding: 1.1rem 1.4rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.87rem;
+  line-height: 1.8;
+  overflow-y: auto;
+  word-break: break-word;
+  /* Растягивается внутри панели */
+  min-height: 0;
 }
 .contenteditable:empty::before { content: attr(placeholder); color: var(--text3); pointer-events: none; }
 /* Phone spans */
@@ -159,7 +184,15 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
 @keyframes findPulse { 0%,100%{box-shadow:0 0 0 0 #ffe04f88} 50%{box-shadow:0 0 0 8px #ffe04f00} }
 
 /* ─── RESULTS ───────────────────────────────────── */
-.results-wrap { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; overflow-y: visible; flex: 1; }
+.results-wrap {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
 .phone-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem 0.75rem 1.1rem; position: relative; transition: border-color 0.15s; }
 .phone-card::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--card-color); border-radius: 4px; }
 .phone-number { color: var(--card-color); cursor: pointer; font-weight: 700; font-size: 0.88rem; }
@@ -278,27 +311,25 @@ button { cursor: pointer; }
 <!-- ══ LAYOUT ════════════════════════════════════ -->
 <div class="layout" id="mainLayout">
   <div class="resizer" id="resizer"></div>
+
+  <!-- LEFT PANEL: editor -->
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">📝 Блокнот</div>
       <div id="notebookName" style="color:var(--accent);font-size:0.68rem;font-weight:700;margin-left:4px;"></div>
     </div>
-    <div id="editorWrap" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative;">
+    <!-- editor takes remaining height, stats bar pinned to bottom -->
+    <div id="editorWrap" style="display:flex;flex-direction:column;flex:1;min-height:0;">
       <div id="editable" class="contenteditable" contenteditable="true" spellcheck="false" placeholder="Вставьте текст с номерами телефонов..."></div>
       <div class="stats-bar">
         <span>📄 <span id="charCount">0</span> симв.</span>
         <span>📞 <span id="foundCount">0</span> номеров</span>
         <span style="color:var(--accent);font-size:0.65rem;">клик по номеру → карточка</span>
       </div>
-      <div id="vResizer" title="Потяни чтобы изменить высоту блокнота"
-        style="height:8px;cursor:row-resize;flex-shrink:0;background:transparent;
-               border-top:2px solid var(--border);display:flex;align-items:center;
-               justify-content:center;transition:border-color 0.15s,background 0.15s;
-               position:relative;">
-        <div style="width:40px;height:3px;border-radius:99px;background:var(--border2);pointer-events:none;transition:background 0.15s;" id="vResizerHandle"></div>
-      </div>
     </div>
   </div>
+
+  <!-- RIGHT PANEL: results -->
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">📋 Номера</div>
@@ -425,7 +456,6 @@ function updateFontSizeUI(sz) {
   currentFontSize = sz;
   document.getElementById('fontSizeDisplay').textContent = sz;
   var sel = document.getElementById('fontSizeSelect');
-  // find closest option
   var opts = sel.options;
   var best = 0;
   for (var i=0; i<opts.length; i++) if (parseInt(opts[i].value) <= sz) best = i;
@@ -455,40 +485,65 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ── FIX: Enter inside phone-highlight span must escape the span first ──
+// ══════════════════════════════════════════════════
+// FIX Enter inside phone-highlight span
+// ══════════════════════════════════════════════════
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Enter') return;
+  var editor = document.getElementById('editable');
+
+  // Убеждаемся что фокус в редакторе
+  if (!editor.contains(document.activeElement) && document.activeElement !== editor) return;
+
   var sel = window.getSelection();
   if (!sel || !sel.rangeCount) return;
+
+  // Проверяем, находится ли курсор внутри phone-highlight span
   var node = sel.anchorNode;
-  // Walk up to find if we are inside a phone-highlight span
   var span = null;
-  var cur = node.nodeType === 3 ? node.parentElement : node;
-  while (cur && cur !== document.getElementById('editable')) {
+  var cur = (node && node.nodeType === 3) ? node.parentElement : node;
+  while (cur && cur !== editor) {
     if (cur.classList && cur.classList.contains('phone-highlight')) { span = cur; break; }
     cur = cur.parentElement;
   }
-  if (!span) return; // not inside a phone span — let default happen
+  if (!span) return; // не в span — Enter работает штатно
 
   e.preventDefault();
 
-  // Insert a <br> AFTER the span then place cursor there
-  var br = document.createElement('br');
-  var spacer = document.createTextNode('​'); // zero-width space as editable anchor
-  span.parentNode.insertBefore(br, span.nextSibling);
-  span.parentNode.insertBefore(spacer, br.nextSibling);
+  // Запоминаем скролл редактора и страницы
+  var editorScroll = editor.scrollTop;
+  var pageScroll = window.scrollY;
 
-  // Remove the zero-width space immediately after cursor is placed
+  // Вставляем перенос строки
+  var range = sel.getRangeAt(0);
+  range.deleteContents();
+
+  // Создаём перенос после span
+  var br = document.createElement('br');
+  var after = span.nextSibling;
+  if (after) {
+    span.parentNode.insertBefore(br, after);
+  } else {
+    span.parentNode.appendChild(br);
+    // Добавляем второй br если span последний элемент (иначе курсор не встанет)
+    var br2 = document.createElement('br');
+    span.parentNode.appendChild(br2);
+  }
+
+  // Ставим курсор после br
   var newRange = document.createRange();
-  newRange.setStart(spacer, 0);
+  newRange.setStartAfter(br);
   newRange.collapse(true);
   sel.removeAllRanges();
   sel.addRange(newRange);
 
-  // Trigger parse
+  // Восстанавливаем скролл
+  editor.scrollTop = editorScroll;
+  window.scrollTo(0, pageScroll);
+
   clearTimeout(window._edDebounce);
   window._edDebounce = setTimeout(parseAndUpdate, 120);
-}, true);
+});
 
 // ══════════════════════════════════════════════════
 // OPERATORS
@@ -651,7 +706,6 @@ function renderTabs() {
     })(nb.id, tab, isActive);
     scroll.appendChild(tab);
   }
-  // Scroll active tab into view
   var activeTab = scroll.querySelector('.tab.active');
   if (activeTab) activeTab.scrollIntoView({block:'nearest', inline:'nearest'});
 }
@@ -671,7 +725,6 @@ function createNewNotebook() {
   activeNotebookId = nb.id;
   saveState(); renderTabs(); loadNotebookIntoEditor(nb);
   showToast('✅ Создан: '+nb.name);
-  // scroll new tab into view
   setTimeout(function(){
     var last = document.getElementById('tabsScroll').lastElementChild;
     if(last) last.scrollIntoView({inline:'end'});
@@ -700,14 +753,13 @@ function saveCurrentEditorText() {
 }
 function loadNotebookIntoEditor(nb) {
   var editor = document.getElementById('editable');
-  // Restore as plain text to avoid phone-highlight artifacts persisting across notebooks
   editor.innerText = nb.text || '';
   document.getElementById('notebookName').textContent = nb.name;
   parseAndUpdate();
 }
 
 // ══════════════════════════════════════════════════
-// RENAME MODAL (fallback)
+// RENAME MODAL
 // ══════════════════════════════════════════════════
 function closeModal() { document.getElementById('renameModal').classList.remove('open'); renameTargetId=null; }
 function confirmRename() {
@@ -724,7 +776,6 @@ document.getElementById('renameModal').addEventListener('click', function(e){
 
 // ══════════════════════════════════════════════════
 // EDITOR HIGHLIGHTING
-// FIX: use TreeWalker to find text nodes, avoid cursor-jump on Enter
 // ══════════════════════════════════════════════════
 var isHighlighting = false;
 
@@ -733,7 +784,9 @@ function highlightPhonesInEditor() {
   if (isHighlighting) return;
   isHighlighting = true;
 
-  // Save cursor position
+  // Сохраняем позицию скролла редактора
+  var savedScrollTop = editor.scrollTop;
+
   var sel = window.getSelection();
   var savedAnchor = null, savedOffset = 0;
   if (sel && sel.rangeCount > 0) {
@@ -742,16 +795,12 @@ function highlightPhonesInEditor() {
     savedOffset = range.startOffset;
   }
 
-  // Get all text content while preserving block structure
-  // We walk text nodes, replace phone matches with spans
   var phoneRegex = getPhoneRegex();
 
-  // Process each text node independently to avoid block structure destruction
   var walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false);
   var textNodes = [];
   var node;
   while ((node = walker.nextNode())) {
-    // Don't process text inside existing phone-highlight spans
     if (!node.parentElement.classList.contains('phone-highlight')) {
       textNodes.push(node);
     }
@@ -761,7 +810,7 @@ function highlightPhonesInEditor() {
     var tn = textNodes[i];
     var txt = tn.nodeValue;
     phoneRegex.lastIndex = 0;
-    if (!phoneRegex.test(txt)) continue; // skip if no phones in this text node
+    if (!phoneRegex.test(txt)) continue;
     phoneRegex.lastIndex = 0;
 
     var frag = document.createDocumentFragment();
@@ -787,7 +836,7 @@ function highlightPhonesInEditor() {
     if (tn.parentNode) tn.parentNode.replaceChild(frag, tn);
   }
 
-  // Restore cursor
+  // Восстанавливаем курсор
   try {
     if (savedAnchor && document.body.contains(savedAnchor)) {
       var newRange = document.createRange();
@@ -798,6 +847,9 @@ function highlightPhonesInEditor() {
       sel.addRange(newRange);
     }
   } catch(e) {}
+
+  // Восстанавливаем скролл редактора — предотвращает прыжок
+  editor.scrollTop = savedScrollTop;
 
   isHighlighting = false;
 }
@@ -1019,7 +1071,7 @@ window.onload = function() {
 };
 
 // ══════════════════════════════════════════════════
-// RESIZER — drag to resize notebook vs results
+// RESIZER — drag to resize notebook vs results (horizontal only)
 // ══════════════════════════════════════════════════
 (function() {
   var layout = document.getElementById('mainLayout');
@@ -1027,8 +1079,6 @@ window.onload = function() {
   if (!resizer || !layout) return;
 
   var dragging = false;
-  var startX = 0;
-  var startPct = 50;
 
   function getPct() {
     var stored = parseFloat(localStorage.getItem('skl_split'));
@@ -1041,14 +1091,11 @@ window.onload = function() {
     localStorage.setItem('skl_split', pct);
   }
 
-  // Init from saved
   setPct(getPct());
 
   resizer.addEventListener('mousedown', function(e) {
     e.preventDefault();
     dragging = true;
-    startX = e.clientX;
-    startPct = getPct();
     resizer.classList.add('dragging');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
@@ -1069,11 +1116,8 @@ window.onload = function() {
     document.body.style.userSelect = '';
   });
 
-  // Touch support
   resizer.addEventListener('touchstart', function(e) {
     dragging = true;
-    startX = e.touches[0].clientX;
-    startPct = getPct();
     resizer.classList.add('dragging');
   }, {passive: true});
   document.addEventListener('touchmove', function(e) {
@@ -1086,99 +1130,6 @@ window.onload = function() {
     dragging = false;
     resizer.classList.remove('dragging');
   });
-})();
-
-// ══════════════════════════════════════════════════
-// VERTICAL RESIZER — drag bottom of editor to resize height
-// ══════════════════════════════════════════════════
-(function() {
-  var vResizer = document.getElementById('vResizer');
-  var editorWrap = document.getElementById('editorWrap');
-  var handle = document.getElementById('vResizerHandle');
-  if (!vResizer || !editorWrap) return;
-
-  var dragging = false;
-  var startY = 0;
-  var startH = 0;
-
-  function getSavedH() {
-    var v = parseFloat(localStorage.getItem('skl_editor_h'));
-    return (v > 80) ? v : null;
-  }
-  function applyHeight(h) {
-    var minH = 80;
-    var maxH = 99999; // no upper cap — page grows with editor
-    h = Math.max(minH, Math.min(maxH, h));
-    editorWrap.style.flex = 'none';
-    editorWrap.style.height = h + 'px';
-    localStorage.setItem('skl_editor_h', h);
-  }
-  function resetToFlex() {
-    editorWrap.style.flex = '1';
-    editorWrap.style.height = '';
-    localStorage.removeItem('skl_editor_h');
-  }
-
-  // Restore saved height
-  var saved = getSavedH();
-  if (saved) applyHeight(saved);
-
-  // Hover style
-  vResizer.addEventListener('mouseenter', function() {
-    vResizer.style.borderTopColor = 'var(--accent)';
-    if (handle) handle.style.background = 'var(--accent)';
-  });
-  vResizer.addEventListener('mouseleave', function() {
-    if (!dragging) {
-      vResizer.style.borderTopColor = '';
-      if (handle) handle.style.background = '';
-    }
-  });
-
-  // Double-click to reset to auto flex
-  vResizer.addEventListener('dblclick', function() {
-    resetToFlex();
-    showToast('↕ Высота сброшена');
-  });
-
-  vResizer.addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    dragging = true;
-    startY = e.clientY;
-    startH = editorWrap.getBoundingClientRect().height;
-    vResizer.style.borderTopColor = 'var(--accent)';
-    if (handle) handle.style.background = 'var(--accent)';
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var delta = e.clientY - startY;
-    applyHeight(startH + delta);
-  });
-
-  document.addEventListener('mouseup', function() {
-    if (!dragging) return;
-    dragging = false;
-    vResizer.style.borderTopColor = '';
-    if (handle) handle.style.background = '';
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  });
-
-  // Touch
-  vResizer.addEventListener('touchstart', function(e) {
-    dragging = true;
-    startY = e.touches[0].clientY;
-    startH = editorWrap.getBoundingClientRect().height;
-  }, {passive: true});
-  document.addEventListener('touchmove', function(e) {
-    if (!dragging) return;
-    var delta = e.touches[0].clientY - startY;
-    applyHeight(startH + delta);
-  }, {passive: true});
-  document.addEventListener('touchend', function() { dragging = false; });
 })();
 </script>
 </body>
