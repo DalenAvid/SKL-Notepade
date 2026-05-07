@@ -45,6 +45,49 @@ body.theme-ocean {
   --accent: #38d4ff; --accent-dim: rgba(56,212,255,0.12); --accent2: #00a8e0;
   --shadow: rgba(0,0,0,0.6);
 }
+body.theme-red {
+  --bg: #120608; --bg2: #1c0a0d; --bg3: #280f12;
+  --border: #3d1418; --border2: #6b2028;
+  --text: #ffe8ea; --text2: #c06878; --text3: #7a3040;
+  --accent: #ff4466; --accent-dim: rgba(255,68,102,0.13); --accent2: #cc2244;
+  --shadow: rgba(0,0,0,0.6);
+}
+body.theme-amber {
+  --bg: #100e04; --bg2: #181408; --bg3: #221c0c;
+  --border: #3a2e10; --border2: #604e20;
+  --text: #fff5d8; --text2: #c8a850; --text3: #7a6228;
+  --accent: #ffcc00; --accent-dim: rgba(255,204,0,0.13); --accent2: #cc9900;
+  --shadow: rgba(0,0,0,0.6);
+}
+body.theme-rose {
+  --bg: #120810; --bg2: #1a0e18; --bg3: #241420;
+  --border: #3d1838; --border2: #6b2860;
+  --text: #ffe8f8; --text2: #c068b0; --text3: #7a3068;
+  --accent: #ff66cc; --accent-dim: rgba(255,102,204,0.13); --accent2: #dd44aa;
+  --shadow: rgba(0,0,0,0.6);
+}
+body.theme-matrix {
+  --bg: #000800; --bg2: #001200; --bg3: #001a00;
+  --border: #003300; --border2: #005500;
+  --text: #ccffcc; --text2: #44cc44; --text3: #226622;
+  --accent: #00ff41; --accent-dim: rgba(0,255,65,0.12); --accent2: #00cc33;
+  --shadow: rgba(0,0,0,0.8);
+}
+body.theme-slate {
+  --bg: #0c0e12; --bg2: #141820; --bg3: #1c2030;
+  --border: #2c3448; --border2: #3c4a60;
+  --text: #dce4f0; --text2: #7888a8; --text3: #445568;
+  --accent: #7aadff; --accent-dim: rgba(122,173,255,0.12); --accent2: #4488dd;
+  --shadow: rgba(0,0,0,0.5);
+}
+body.theme-copper {
+  --bg: #0e0a06; --bg2: #181008; --bg3: #22180c;
+  --border: #3c2810; --border2: #6a4020;
+  --text: #ffe8cc; --text2: #cc8844; --text3: #7a4820;
+  --accent: #ff9944; --accent-dim: rgba(255,153,68,0.13); --accent2: #dd7722;
+  --shadow: rgba(0,0,0,0.6);
+}
+
 
 body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; transition: background 0.3s, color 0.3s; }
 
@@ -81,6 +124,12 @@ body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono',
 .theme-dot[data-theme="neutral"] { background: #242424; outline: 1px solid #505050; }
 .theme-dot[data-theme="purple"]  { background: linear-gradient(135deg,#140f24,#c87cff); }
 .theme-dot[data-theme="ocean"]   { background: linear-gradient(135deg,#060f1e,#38d4ff); }
+.theme-dot[data-theme="red"]     { background: linear-gradient(135deg,#1c0a0d,#ff4466); }
+.theme-dot[data-theme="amber"]   { background: linear-gradient(135deg,#181408,#ffcc00); }
+.theme-dot[data-theme="rose"]    { background: linear-gradient(135deg,#1a0e18,#ff66cc); }
+.theme-dot[data-theme="matrix"]  { background: linear-gradient(135deg,#001200,#00ff41); }
+.theme-dot[data-theme="slate"]   { background: linear-gradient(135deg,#141820,#7aadff); }
+.theme-dot[data-theme="copper"]  { background: linear-gradient(135deg,#181008,#ff9944); }
 
 /* ─── HEADER ────────────────────────────────────── */
 header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; background: var(--bg2); flex-wrap: wrap; flex-shrink: 0; }
@@ -123,8 +172,7 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
 .layout {
   display: grid;
   grid-template-columns: var(--split, 50%) 1fr;
-  /* Фиксированная высота 1000px для обеих панелей */
-  height: 1000px;
+  height: 800px;
   flex-shrink: 0;
   position: relative;
 }
@@ -152,8 +200,7 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  /* Панель занимает всю высоту layout */
-  height: 1000px;
+  height: 800px;
   overflow: hidden;
 }
 .panel:last-child { border-right: none; }
@@ -260,12 +307,18 @@ button { cursor: pointer; }
     <div class="theme-dot" data-theme="neutral" onclick="setTheme('neutral')" title="Нейтральная"></div>
     <div class="theme-dot" data-theme="purple" onclick="setTheme('purple')" title="Пурпур"></div>
     <div class="theme-dot" data-theme="ocean" onclick="setTheme('ocean')" title="Океан"></div>
+    <div class="theme-dot" data-theme="red" onclick="setTheme('red')" title="Красный"></div>
+    <div class="theme-dot" data-theme="amber" onclick="setTheme('amber')" title="Янтарь"></div>
+    <div class="theme-dot" data-theme="rose" onclick="setTheme('rose')" title="Розовый"></div>
+    <div class="theme-dot" data-theme="matrix" onclick="setTheme('matrix')" title="Матрица"></div>
+    <div class="theme-dot" data-theme="slate" onclick="setTheme('slate')" title="Синий"></div>
+    <div class="theme-dot" data-theme="copper" onclick="setTheme('copper')" title="Медь"></div>
   </div>
 </div>
 
 <!-- ══ HEADER ════════════════════════════════════ -->
 <header>
-  <div class="logo">SKL-Блокнот <span style="font-weight:400;font-size:0.8rem;opacity:0.6">· Дuтектор номеров</span></div>
+  <div class="logo">SKL-Блокнот <span style="font-weight:400;font-size:0.8rem;opacity:0.6">· Детектор номеров</span></div>
   <div class="badge">v2.0</div>
   <button onclick="exportData()" style="margin-left:auto; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); border-radius:8px; padding:5px 13px; font-size:0.68rem; font-family:monospace;">💾 Экспорт</button>
 </header>
@@ -892,9 +945,14 @@ window.setPhoneStatus = function(norm, statusKey) {
   if (!nb.statuses) nb.statuses = {};
   nb.statuses[norm] = statusKey;
   saveState();
+  var resultsEl = document.getElementById('results');
+  var savedScroll = resultsEl ? resultsEl.scrollTop : 0;
+  var pageScroll = window.scrollY;
   renderResultsPanel(currentPhonesList);
   renderBottomStats(currentPhonesList);
   renderTabs();
+  if (resultsEl) resultsEl.scrollTop = savedScroll;
+  window.scrollTo(0, pageScroll);
 };
 
 // ══════════════════════════════════════════════════
