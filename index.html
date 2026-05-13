@@ -88,7 +88,6 @@ body.theme-copper {
   --shadow: rgba(0,0,0,0.6);
 }
 
-
 body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; transition: background 0.3s, color 0.3s; }
 
 /* ─── TIMER BAR ─────────────────────────────────── */
@@ -220,13 +219,59 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
   line-height: 1.8;
   overflow-y: auto;
   word-break: break-word;
-  /* Растягивается внутри панели */
   min-height: 0;
 }
 .contenteditable:empty::before { content: attr(placeholder); color: var(--text3); pointer-events: none; }
-/* Phone spans */
-.phone-highlight { display: inline; padding: 2px 7px; margin: 0 1px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: filter 0.15s; border: 1px solid transparent; }
+
+/* ─── PHONE HIGHLIGHT В РЕДАКТОРЕ ──────────────── */
+.phone-highlight {
+  display: inline;
+  padding: 2px 7px;
+  margin: 0 1px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, box-shadow 0.15s;
+  border: 1px solid transparent;
+  position: relative;
+}
 .phone-highlight:hover { filter: brightness(1.2); }
+
+/* Прозвонен — полосатый фон + зачёркнуто */
+.phone-highlight.called {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.6);
+  text-decoration-thickness: 2px;
+  opacity: 0.6;
+  filter: saturate(0.4);
+}
+.phone-highlight.called::after {
+  content: '✓';
+  font-size: 0.65em;
+  margin-left: 3px;
+  vertical-align: super;
+  opacity: 0.9;
+  text-decoration: none;
+  display: inline;
+}
+
+/* Не дозвонились — красная рамка */
+.phone-highlight.status-srez {
+  box-shadow: 0 0 0 2px #ff6b6b88 inset;
+}
+/* НДЗ — синяя рамка */
+.phone-highlight.status-ndz {
+  box-shadow: 0 0 0 2px #4fbfff88 inset;
+}
+/* ДОК — фиолетовая рамка */
+.phone-highlight.status-dok {
+  box-shadow: 0 0 0 2px #bf4fff88 inset;
+}
+/* АО — оранжевая рамка */
+.phone-highlight.status-ao {
+  box-shadow: 0 0 0 2px #ff9a4f88 inset;
+}
+
 .phone-highlight.highlighted-find { outline: 3px solid #ffe04f; outline-offset: 2px; animation: findPulse 0.6s ease 3; }
 @keyframes findPulse { 0%,100%{box-shadow:0 0 0 0 #ffe04f88} 50%{box-shadow:0 0 0 8px #ffe04f00} }
 
@@ -242,8 +287,12 @@ header { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); displa
 }
 .phone-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 1rem 0.75rem 1.1rem; position: relative; transition: border-color 0.15s; }
 .phone-card::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--card-color); border-radius: 4px; }
+/* карточка прозвоненного */
+.phone-card.called-card { opacity: 0.6; }
+.phone-card.called-card::after { content: '✓ Прозвонен'; position:absolute; top:8px; right:10px; font-size:0.62rem; font-weight:700; color:#4fffb0; background:rgba(79,255,176,0.1); border:1px solid rgba(79,255,176,0.3); border-radius:30px; padding:1px 8px; }
 .phone-number { color: var(--card-color); cursor: pointer; font-weight: 700; font-size: 0.88rem; }
 .operator-tag { font-size: 0.57rem; padding: 2px 9px; border-radius: 999px; background: var(--op-bg); color: var(--op-color); border: 1px solid var(--op-border); font-weight: 600; }
+.region-tag { font-size: 0.55rem; padding: 2px 7px; border-radius: 999px; background: var(--bg3); color: var(--text3); border: 1px solid var(--border); font-weight: 500; }
 .status-tag { font-size: 0.58rem; padding: 2px 8px; border-radius: 30px; font-weight: 600; }
 .status-selector { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .status-btn { background: transparent; border: 1px solid; color: inherit; border-radius: 20px; cursor: pointer; font-family: monospace; font-size: 0.62rem; padding: 2px 8px; font-weight: 600; transition: all 0.1s; display: flex; align-items: center; gap: 3px; }
@@ -319,7 +368,7 @@ button { cursor: pointer; }
 <!-- ══ HEADER ════════════════════════════════════ -->
 <header>
   <div class="logo">SKL-Блокнот <span style="font-weight:400;font-size:0.8rem;opacity:0.6">· Детектор номеров</span></div>
-  <div class="badge">v2.0</div>
+  <div class="badge">v2.1</div>
   <button onclick="exportData()" style="margin-left:auto; background:var(--bg3); border:1px solid var(--border2); color:var(--text2); border-radius:8px; padding:5px 13px; font-size:0.68rem; font-family:monospace;">💾 Экспорт</button>
 </header>
 
@@ -365,24 +414,22 @@ button { cursor: pointer; }
 <div class="layout" id="mainLayout">
   <div class="resizer" id="resizer"></div>
 
-  <!-- LEFT PANEL: editor -->
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">📝 Блокнот</div>
       <div id="notebookName" style="color:var(--accent);font-size:0.68rem;font-weight:700;margin-left:4px;"></div>
     </div>
-    <!-- editor takes remaining height, stats bar pinned to bottom -->
     <div id="editorWrap" style="display:flex;flex-direction:column;flex:1;min-height:0;">
       <div id="editable" class="contenteditable" contenteditable="true" spellcheck="false" placeholder="Вставьте текст с номерами телефонов..."></div>
       <div class="stats-bar">
         <span>📄 <span id="charCount">0</span> симв.</span>
         <span>📞 <span id="foundCount">0</span> номеров</span>
+        <span>✅ <span id="calledCount">0</span> прозвонено</span>
         <span style="color:var(--accent);font-size:0.65rem;">клик по номеру → карточка</span>
       </div>
     </div>
   </div>
 
-  <!-- RIGHT PANEL: results -->
   <div class="panel">
     <div class="panel-header">
       <div class="panel-title">📋 Номера</div>
@@ -426,240 +473,247 @@ setTheme(currentTheme);
 // ══════════════════════════════════════════════════
 // TIMER
 // ══════════════════════════════════════════════════
-var timerInterval = null;
-var timerRemaining = 0;
-var timerTotal = 0;
-var timerRunning = false;
-
+var timerInterval = null, timerRemaining = 0, timerTotal = 0, timerRunning = false;
 function timerStart() {
-  var m = parseInt(document.getElementById('timerMinInput').value) || 0;
-  var s = parseInt(document.getElementById('timerSecInput').value) || 0;
-  timerTotal = m * 60 + s;
-  timerRemaining = timerTotal;
-  if (timerTotal <= 0) { showToast('⚠ Выставьте время'); return; }
+  var m = parseInt(document.getElementById('timerMinInput').value)||0;
+  var s = parseInt(document.getElementById('timerSecInput').value)||0;
+  timerTotal = m*60+s; timerRemaining = timerTotal;
+  if (timerTotal<=0){showToast('⚠ Выставьте время');return;}
   timerRunning = true;
-  document.getElementById('btnTimerStart').style.display = 'none';
-  document.getElementById('btnTimerPause').style.display = '';
-  document.getElementById('btnTimerResume').style.display = 'none';
-  clearInterval(timerInterval);
-  timerTick();
-  timerInterval = setInterval(timerTick, 1000);
+  document.getElementById('btnTimerStart').style.display='none';
+  document.getElementById('btnTimerPause').style.display='';
+  document.getElementById('btnTimerResume').style.display='none';
+  clearInterval(timerInterval); timerTick();
+  timerInterval = setInterval(timerTick,1000);
 }
-function timerPause() {
-  clearInterval(timerInterval);
-  timerRunning = false;
-  document.getElementById('btnTimerPause').style.display = 'none';
-  document.getElementById('btnTimerResume').style.display = '';
-}
-function timerResume() {
-  timerRunning = true;
-  document.getElementById('btnTimerPause').style.display = '';
-  document.getElementById('btnTimerResume').style.display = 'none';
-  timerInterval = setInterval(timerTick, 1000);
-}
-function timerReset() {
-  clearInterval(timerInterval);
-  timerRunning = false;
-  timerRemaining = 0;
-  timerTotal = 0;
-  document.getElementById('timerDisplay').textContent = '00:00';
-  document.getElementById('timerDisplay').classList.remove('danger');
-  document.getElementById('timerProgress').style.width = '100%';
-  document.getElementById('timerProgress').style.background = 'var(--accent)';
-  document.getElementById('btnTimerStart').style.display = '';
-  document.getElementById('btnTimerPause').style.display = 'none';
-  document.getElementById('btnTimerResume').style.display = 'none';
-}
-function timerTick() {
-  if (timerRemaining <= 0) {
-    clearInterval(timerInterval);
-    document.getElementById('timerDisplay').textContent = '00:00';
-    document.getElementById('timerDisplay').classList.add('danger');
-    showToast('⏰ Время вышло!');
-    document.getElementById('btnTimerPause').style.display = 'none';
-    document.getElementById('btnTimerStart').style.display = '';
-    return;
-  }
-  var m = Math.floor(timerRemaining / 60);
-  var s = timerRemaining % 60;
-  document.getElementById('timerDisplay').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  var pct = timerTotal > 0 ? (timerRemaining / timerTotal) * 100 : 100;
-  document.getElementById('timerProgress').style.width = pct + '%';
-  var danger = timerRemaining <= 10;
-  document.getElementById('timerDisplay').classList.toggle('danger', danger);
-  document.getElementById('timerProgress').style.background = danger ? '#ff4444' : 'var(--accent)';
+function timerPause(){clearInterval(timerInterval);timerRunning=false;document.getElementById('btnTimerPause').style.display='none';document.getElementById('btnTimerResume').style.display='';}
+function timerResume(){timerRunning=true;document.getElementById('btnTimerPause').style.display='';document.getElementById('btnTimerResume').style.display='none';timerInterval=setInterval(timerTick,1000);}
+function timerReset(){clearInterval(timerInterval);timerRunning=false;timerRemaining=0;timerTotal=0;document.getElementById('timerDisplay').textContent='00:00';document.getElementById('timerDisplay').classList.remove('danger');document.getElementById('timerProgress').style.width='100%';document.getElementById('timerProgress').style.background='var(--accent)';document.getElementById('btnTimerStart').style.display='';document.getElementById('btnTimerPause').style.display='none';document.getElementById('btnTimerResume').style.display='none';}
+function timerTick(){
+  if(timerRemaining<=0){clearInterval(timerInterval);document.getElementById('timerDisplay').textContent='00:00';document.getElementById('timerDisplay').classList.add('danger');showToast('⏰ Время вышло!');document.getElementById('btnTimerPause').style.display='none';document.getElementById('btnTimerStart').style.display='';return;}
+  var m=Math.floor(timerRemaining/60),s=timerRemaining%60;
+  document.getElementById('timerDisplay').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  var pct=timerTotal>0?(timerRemaining/timerTotal)*100:100;
+  document.getElementById('timerProgress').style.width=pct+'%';
+  var danger=timerRemaining<=10;
+  document.getElementById('timerDisplay').classList.toggle('danger',danger);
+  document.getElementById('timerProgress').style.background=danger?'#ff4444':'var(--accent)';
   timerRemaining--;
 }
 
 // ══════════════════════════════════════════════════
 // FORMAT TOOLBAR
 // ══════════════════════════════════════════════════
-function fmt(cmd, val) {
-  document.getElementById('editable').focus();
-  document.execCommand(cmd, false, val || null);
-}
-function insertHR() {
-  document.getElementById('editable').focus();
-  document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">');
-}
-
-// ── FONT SIZE ──────────────────────────────────────
-var currentFontSize = 14;
-function updateFontSizeUI(sz) {
-  currentFontSize = sz;
-  document.getElementById('fontSizeDisplay').textContent = sz;
-  var sel = document.getElementById('fontSizeSelect');
-  var opts = sel.options;
-  var best = 0;
-  for (var i=0; i<opts.length; i++) if (parseInt(opts[i].value) <= sz) best = i;
-  sel.selectedIndex = best;
-}
-function setFontSizePx(sz) {
-  sz = Math.max(8, Math.min(72, sz));
-  document.getElementById('editable').focus();
-  document.execCommand('fontSize', false, '7');
-  var spans = document.getElementById('editable').querySelectorAll('font[size="7"]');
-  spans.forEach(function(s){ s.removeAttribute('size'); s.style.fontSize = sz + 'px'; });
-  updateFontSizeUI(sz);
-}
-function changeFontSize(delta) {
-  var steps = [8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,42,48,56,64,72];
-  var idx = steps.indexOf(currentFontSize);
-  if (idx === -1) { idx = steps.reduce(function(bi,v,i){ return Math.abs(v-currentFontSize)<Math.abs(steps[bi]-currentFontSize)?i:bi; }, 0); }
-  idx = Math.max(0, Math.min(steps.length-1, idx + delta));
-  setFontSizePx(steps[idx]);
-}
-
-document.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-    if (e.key === 'b') { e.preventDefault(); fmt('bold'); }
-    if (e.key === 'i') { e.preventDefault(); fmt('italic'); }
-    if (e.key === 'u') { e.preventDefault(); fmt('underline'); }
-  }
-});
-
-// ══════════════════════════════════════════════════
-// FIX Enter inside phone-highlight span
-// ══════════════════════════════════════════════════
-document.addEventListener('keydown', function(e) {
-  if (e.key !== 'Enter') return;
-  var editor = document.getElementById('editable');
-
-  // Убеждаемся что фокус в редакторе
-  if (!editor.contains(document.activeElement) && document.activeElement !== editor) return;
-
-  var sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
-
-  // Проверяем, находится ли курсор внутри phone-highlight span
-  var node = sel.anchorNode;
-  var span = null;
-  var cur = (node && node.nodeType === 3) ? node.parentElement : node;
-  while (cur && cur !== editor) {
-    if (cur.classList && cur.classList.contains('phone-highlight')) { span = cur; break; }
-    cur = cur.parentElement;
-  }
-  if (!span) return; // не в span — Enter работает штатно
-
+function fmt(cmd,val){document.getElementById('editable').focus();document.execCommand(cmd,false,val||null);}
+function insertHR(){document.getElementById('editable').focus();document.execCommand('insertHTML',false,'<hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">');}
+var currentFontSize=14;
+function updateFontSizeUI(sz){currentFontSize=sz;document.getElementById('fontSizeDisplay').textContent=sz;var sel=document.getElementById('fontSizeSelect');var opts=sel.options;var best=0;for(var i=0;i<opts.length;i++)if(parseInt(opts[i].value)<=sz)best=i;sel.selectedIndex=best;}
+function setFontSizePx(sz){sz=Math.max(8,Math.min(72,sz));document.getElementById('editable').focus();document.execCommand('fontSize',false,'7');var spans=document.getElementById('editable').querySelectorAll('font[size="7"]');spans.forEach(function(s){s.removeAttribute('size');s.style.fontSize=sz+'px';});updateFontSizeUI(sz);}
+function changeFontSize(delta){var steps=[8,9,10,11,12,13,14,16,18,20,22,24,28,32,36,42,48,56,64,72];var idx=steps.indexOf(currentFontSize);if(idx===-1){idx=steps.reduce(function(bi,v,i){return Math.abs(v-currentFontSize)<Math.abs(steps[bi]-currentFontSize)?i:bi;},0);}idx=Math.max(0,Math.min(steps.length-1,idx+delta));setFontSizePx(steps[idx]);}
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&!e.shiftKey){if(e.key==='b'){e.preventDefault();fmt('bold');}if(e.key==='i'){e.preventDefault();fmt('italic');}if(e.key==='u'){e.preventDefault();fmt('underline');}}});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;
+  var editor=document.getElementById('editable');
+  if(!editor.contains(document.activeElement)&&document.activeElement!==editor)return;
+  var sel=window.getSelection();if(!sel||!sel.rangeCount)return;
+  var node=sel.anchorNode;var span=null;
+  var cur=(node&&node.nodeType===3)?node.parentElement:node;
+  while(cur&&cur!==editor){if(cur.classList&&cur.classList.contains('phone-highlight')){span=cur;break;}cur=cur.parentElement;}
+  if(!span)return;
   e.preventDefault();
-
-  // Запоминаем скролл редактора и страницы
-  var editorScroll = editor.scrollTop;
-  var pageScroll = window.scrollY;
-
-  // Вставляем перенос строки
-  var range = sel.getRangeAt(0);
-  range.deleteContents();
-
-  // Создаём перенос после span
-  var br = document.createElement('br');
-  var after = span.nextSibling;
-  if (after) {
-    span.parentNode.insertBefore(br, after);
-  } else {
-    span.parentNode.appendChild(br);
-    // Добавляем второй br если span последний элемент (иначе курсор не встанет)
-    var br2 = document.createElement('br');
-    span.parentNode.appendChild(br2);
-  }
-
-  // Ставим курсор после br
-  var newRange = document.createRange();
-  newRange.setStartAfter(br);
-  newRange.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(newRange);
-
-  // Восстанавливаем скролл
-  editor.scrollTop = editorScroll;
-  window.scrollTo(0, pageScroll);
-
-  clearTimeout(window._edDebounce);
-  window._edDebounce = setTimeout(parseAndUpdate, 120);
+  var editorScroll=editor.scrollTop;var pageScroll=window.scrollY;
+  var range=sel.getRangeAt(0);range.deleteContents();
+  var br=document.createElement('br');var after=span.nextSibling;
+  if(after){span.parentNode.insertBefore(br,after);}else{span.parentNode.appendChild(br);var br2=document.createElement('br');span.parentNode.appendChild(br2);}
+  var newRange=document.createRange();newRange.setStartAfter(br);newRange.collapse(true);sel.removeAllRanges();sel.addRange(newRange);
+  editor.scrollTop=editorScroll;window.scrollTo(0,pageScroll);
+  clearTimeout(window._edDebounce);window._edDebounce=setTimeout(parseAndUpdate,120);
 });
 
 // ══════════════════════════════════════════════════
-// OPERATORS
+// РАСШИРЕННАЯ БАЗА ОПЕРАТОРОВ РОССИЯ
+// Формат: код (3 цифры после 7) → [Оператор, цвет, bg, border, регион]
 // ══════════════════════════════════════════════════
-var OPERATORS = {
-  910:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],911:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  912:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],913:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  914:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],915:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  916:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],917:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  918:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],919:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  980:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],981:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  982:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],983:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  984:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],985:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  986:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],987:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  988:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],989:['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88'],
-  900:['Билайн','#f5a623','#f5a62322','#f5a62399'],901:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  902:['Билайн','#f5a623','#f5a62322','#f5a62399'],903:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  904:['Билайн','#f5a623','#f5a62322','#f5a62399'],905:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  906:['Билайн','#f5a623','#f5a62322','#f5a62399'],907:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  908:['Билайн','#f5a623','#f5a62322','#f5a62399'],909:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  960:['Билайн','#f5a623','#f5a62322','#f5a62399'],961:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  962:['Билайн','#f5a623','#f5a62322','#f5a62399'],963:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  964:['Билайн','#f5a623','#f5a62322','#f5a62399'],965:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  966:['Билайн','#f5a623','#f5a62322','#f5a62399'],967:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  968:['Билайн','#f5a623','#f5a62322','#f5a62399'],969:['Билайн','#f5a623','#f5a62322','#f5a62399'],
-  920:['Мегафон','#00b060','#00b06022','#00b06099'],921:['Мегафон','#00b060','#00b06022','#00b06099'],
-  922:['Мегафон','#00b060','#00b06022','#00b06099'],923:['Мегафон','#00b060','#00b06022','#00b06099'],
-  924:['Мегафон','#00b060','#00b06022','#00b06099'],925:['Мегафон','#00b060','#00b06022','#00b06099'],
-  926:['Мегафон','#00b060','#00b06022','#00b06099'],927:['Мегафон','#00b060','#00b06022','#00b06099'],
-  928:['Мегафон','#00b060','#00b06022','#00b06099'],929:['Мегафон','#00b060','#00b06022','#00b06099'],
-  930:['Мегафон','#00b060','#00b06022','#00b06099'],931:['Мегафон','#00b060','#00b06022','#00b06099'],
-  932:['Мегафон','#00b060','#00b06022','#00b06099'],933:['Мегафон','#00b060','#00b06022','#00b06099'],
-  934:['Мегафон','#00b060','#00b06022','#00b06099'],935:['Мегафон','#00b060','#00b06022','#00b06099'],
-  936:['Мегафон','#00b060','#00b06022','#00b06099'],937:['Мегафон','#00b060','#00b06022','#00b06099'],
-  938:['Мегафон','#00b060','#00b06022','#00b06099'],939:['Мегафон','#00b060','#00b06022','#00b06099'],
-  950:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],951:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  952:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],953:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  954:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],955:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  956:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],957:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  958:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],959:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  990:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],991:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  992:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],993:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  994:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],995:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  996:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],997:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],
-  998:['Теле2','#4fbfff','#4fbfff22','#4fbfff99'],999:['Теле2','#4fbfff','#4fbfff22','#4fbfff99']
+var OPERATORS = {};
+
+// ── МТС ──
+[910,911,912,913,914,915,916,917,918,919,
+ 980,981,982,983,984,985,986,987,988,989,
+ 929,936].forEach(function(c){OPERATORS[c]=['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88',''];});
+
+// ── Билайн ──
+[900,901,902,903,904,905,906,907,908,909,
+ 960,961,962,963,964,965,966,967,968,969].forEach(function(c){OPERATORS[c]=['Билайн','#f5a623','#f5a62322','#f5a62399',''];});
+
+// ── МегаФон ──
+[920,921,922,923,924,925,926,927,928,
+ 930,931,932,933,934,935,937,938,939].forEach(function(c){OPERATORS[c]=['МегаФон','#00b060','#00b06022','#00b06099',''];});
+
+// ── Теле2 ──
+[950,951,952,953,954,955,956,957,958,959,
+ 990,991,992,993,994,995,996,997,998,999].forEach(function(c){OPERATORS[c]=['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''];});
+
+// ── Yota (MVNO на МегаФон) ──
+[999].forEach(function(c){OPERATORS[c]=['Yota','#a78bfa','#a78bfa22','#a78bfa99',''];});
+// Yota выделенные диапазоны
+[977,978].forEach(function(c){OPERATORS[c]=['Yota','#a78bfa','#a78bfa22','#a78bfa99',''];});
+
+// ── СберМобайл (MVNO на МТС) ──
+[997].forEach(function(c){OPERATORS[c]=['СберМобайл','#21a038','#21a03822','#21a03888',''];});
+
+// ── Тинькофф Мобайл (MVNO на Теле2) ──
+[996].forEach(function(c){OPERATORS[c]=['Тинькофф','#ffdd00','#ffdd0022','#ffdd0099',''];});
+
+// ── Ростелеком (мобильный) ──
+[800,804,810,811,812,813,814,815,816,817,
+ 818,819,820,821,822,823,824,825,826,827,
+ 828,829,830,831,832,833,834,835,836,837,
+ 838,839,840,841,842,843,844,845,846,847,
+ 848,849].forEach(function(c){OPERATORS[c]=['Ростелеком','#0066cc','#0066cc22','#0066cc99',''];});
+
+// ── MVNO / Виртуальные операторы ──
+var MVNO_MAP = {
+  940: ['Мотив','#e85d04','#e85d0422','#e85d0488','Урал'],
+  941: ['Мотив','#e85d04','#e85d0422','#e85d0488','Урал'],
+  942: ['Мотив','#e85d04','#e85d0422','#e85d0488','Урал'],
+  943: ['Тел2/BeeL','#8888ff','#8888ff22','#8888ff99',''],
+  944: ['МТТ','#6699cc','#6699cc22','#6699cc99',''],
+  945: ['Смартс','#ff7744','#ff774422','#ff774499','Поволжье'],
+  946: ['Смартс','#ff7744','#ff774422','#ff774499','Поволжье'],
+  947: ['ТТК','#aa44cc','#aa44cc22','#aa44cc99',''],
+  948: ['СТС','#44aacc','#44aacc22','#44aacc99',''],
+  949: ['Крымтелеком','#55aa55','#55aa5522','#55aa5599','Крым'],
+  953: ['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''],
+  956: ['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''],
+  958: ['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''],
+  961: ['Ижевск Онлайн','#f5a623','#f5a62322','#f5a62399','Удмуртия'],
+  970: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  971: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  972: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  973: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  974: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  975: ['МТС/Теле2','#cc44aa','#cc44aa22','#cc44aa99',''],
+  976: ['ВымпелКом','#f5a623','#f5a62322','#f5a62399',''],
+  979: ['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88',''],
+  939: ['МТС/МегаФон','#66aa88','#66aa8822','#66aa8899',''],
 };
+for (var k in MVNO_MAP) { if (!OPERATORS[parseInt(k)]) OPERATORS[parseInt(k)] = MVNO_MAP[k]; }
+
+// ── Региональные операторы (города) ──
+var REGIONAL = {
+  // Крым / новые регионы
+  978: ['Крым.ком','#55aa55','#55aa5522','#55aa5599','Крым'],
+  // Специальные номера
+  800: ['Бесплатный 8-800','#aaaaaa','#aaaaaa22','#aaaaaa99',''],
+  804: ['Спецслужбы','#aaaaaa','#aaaaaa22','#aaaaaa99',''],
+};
+
+// ── Городские (стационарные) — по коду ──
+var CITY_CODES = {
+  '7495':'Москва (городской)','7499':'Москва (городской)',
+  '7812':'СПб (городской)','7813':'СПб (городской)',
+  '7343':'Екатеринбург','7383':'Новосибирск','7831':'Нижний Новгород',
+  '7846':'Самара','7863':'Ростов-на-Дону','7843':'Казань',
+  '7347':'Уфа','7391':'Красноярск','7423':'Владивосток',
+  '7342':'Пермь','7432':'Нижний Новгород','7862':'Сочи',
+  '7861':'Краснодар','7472':'Тула','7473':'Воронеж',
+  '7482':'Тула','7483':'Омск','7722':'Челябинск',
+  '7351':'Челябинск','7352':'Челябинск',
+};
+
 function getOperatorInfo(norm) {
-  var code = parseInt(norm.slice(1,4), 10);
-  if (OPERATORS[code]) return OPERATORS[code];
-  if ((code >= 910 && code <= 919)||(code >= 980 && code <= 989)) return ['МТС','#ff3c5f','#ff3c5f22','#ff3c5f99'];
-  if (code >= 900 && code <= 909) return ['Билайн','#f5a623','#f5a62322','#f5a62399'];
-  if (code >= 920 && code <= 939) return ['Мегафон','#00b060','#00b06022','#00b06099'];
-  if ((code >= 950 && code <= 959)||(code >= 990 && code <= 999)) return ['Теле2','#4fbfff','#4fbfff22','#4fbfff99'];
-  return ['Неизвестен','#8890a8','#8890a822','#8890a899'];
+  if (!norm || norm.length < 4) return ['Неизвестен','#8890a8','#8890a822','#8890a899',''];
+
+  // Городские по первым 5 символам
+  var cityKey = norm.slice(0,5);
+  if (CITY_CODES[cityKey]) {
+    return [CITY_CODES[cityKey],'#8890a8','#8890a822','#8890a899', 'city'];
+  }
+
+  // Мобильные российские
+  if (norm.startsWith('7') && norm.length === 11) {
+    var code3 = parseInt(norm.slice(1,4), 10);
+    if (OPERATORS[code3]) return OPERATORS[code3];
+
+    // Диапазонное определение если нет в таблице
+    if (code3>=910&&code3<=919) return ['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88',''];
+    if (code3>=980&&code3<=989) return ['МТС','#ff3c5f','#ff3c5f22','#ff3c5f88',''];
+    if (code3>=900&&code3<=909) return ['Билайн','#f5a623','#f5a62322','#f5a62399',''];
+    if (code3>=960&&code3<=969) return ['Билайн','#f5a623','#f5a62322','#f5a62399',''];
+    if (code3>=920&&code3<=939) return ['МегаФон','#00b060','#00b06022','#00b06099',''];
+    if (code3>=950&&code3<=959) return ['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''];
+    if (code3>=990&&code3<=999) return ['Теле2','#4fbfff','#4fbfff22','#4fbfff99',''];
+    if (code3>=940&&code3<=949) return ['Региональный','#cc8844','#cc884422','#cc884499',''];
+    if (code3>=970&&code3<=979) return ['MVNO','#aa88cc','#aa88cc22','#aa88cc99',''];
+  }
+
+  // Беларусь
+  if (norm.startsWith('375')) {
+    var byCode = parseInt(norm.slice(3,5),10);
+    if (byCode===29||byCode===44) return ['МТС BY','#ff3c5f','#ff3c5f22','#ff3c5f88','Беларусь'];
+    if (byCode===33) return ['МегаФон BY','#00b060','#00b06022','#00b06099','Беларусь'];
+    if (byCode===25||byCode===36) return ['life:) BY','#ff9a4f','#ff9a4f22','#ff9a4f99','Беларусь'];
+    return ['Беларусь','#66aaff','#66aaff22','#66aaff99','Беларусь'];
+  }
+
+  // Казахстан
+  if (norm.startsWith('7') && norm.length===11) {
+    var kzCode = parseInt(norm.slice(1,4),10);
+    if (kzCode>=700&&kzCode<=799) return ['Казахстан','#44bbaa','#44bbaa22','#44bbaa99','Казахстан'];
+  }
+  if (norm.startsWith('77')||norm.startsWith('76')) {
+    return ['Казахстан','#44bbaa','#44bbaa22','#44bbaa99','Казахстан'];
+  }
+
+  // Украина
+  if (norm.startsWith('380')) {
+    return ['Украина','#6688ff','#6688ff22','#6688ff99','Украина'];
+  }
+
+  // Молдова
+  if (norm.startsWith('373')) {
+    return ['Молдова','#99aa44','#99aa4422','#99aa4499','Молдова'];
+  }
+
+  // Другие страны
+  if (norm.startsWith('1')) return ['США/Канада','#3388ff','#3388ff22','#3388ff99',''];
+  if (norm.startsWith('44')) return ['Великобритания','#cc4444','#cc444422','#cc444499',''];
+  if (norm.startsWith('49')) return ['Германия','#ddaa00','#ddaa0022','#ddaa0099',''];
+  if (norm.startsWith('33')) return ['Франция','#4466cc','#4466cc22','#4466cc99',''];
+  if (norm.startsWith('39')) return ['Италия','#22aa44','#22aa4422','#22aa4499',''];
+  if (norm.startsWith('34')) return ['Испания','#cc6600','#cc660022','#cc660099',''];
+  if (norm.startsWith('86')) return ['Китай','#cc2200','#cc220022','#cc220099',''];
+  if (norm.startsWith('971')) return ['ОАЭ','#ddaa22','#ddaa2222','#ddaa2299',''];
+  if (norm.startsWith('972')) return ['Израиль','#4488cc','#4488cc22','#4488cc99',''];
+  if (norm.startsWith('90')) return ['Турция','#cc3333','#cc333322','#cc333399',''];
+  if (norm.startsWith('998')) return ['Узбекистан','#3399cc','#3399cc22','#3399cc99','Узбекистан'];
+  if (norm.startsWith('992')) return ['Таджикистан','#aa5533','#aa553322','#aa553399','Таджикистан'];
+  if (norm.startsWith('996')) return ['Кыргызстан','#cc4422','#cc442222','#cc442299','Кыргызстан'];
+  if (norm.startsWith('994')) return ['Азербайджан','#3388aa','#3388aa22','#3388aa99','Азербайджан'];
+  if (norm.startsWith('995')) return ['Грузия','#cc5522','#cc552222','#cc552299','Грузия'];
+  if (norm.startsWith('374')) return ['Армения','#882233','#88223322','#88223399','Армения'];
+  if (norm.startsWith('993')) return ['Туркменистан','#338844','#33884422','#33884499','Туркменистан'];
+
+  return ['Неизвестен','#8890a8','#8890a822','#8890a899',''];
 }
+
 function getOpColorByName(n) {
-  if (n==='МТС') return '#ff3c5f'; if (n==='Билайн') return '#f5a623';
-  if (n==='Мегафон') return '#00b060'; if (n==='Теле2') return '#4fbfff';
-  return '#8890a8';
+  var colorMap = {'МТС':'#ff3c5f','Билайн':'#f5a623','МегаФон':'#00b060','Теле2':'#4fbfff',
+    'Yota':'#a78bfa','СберМобайл':'#21a038','Тинькофф':'#ffdd00','Мотив':'#e85d04',
+    'Ростелеком':'#0066cc','Региональный':'#cc8844','MVNO':'#aa88cc'};
+  return colorMap[n] || '#8890a8';
+}
+
+// ── Статусы "прозвонен" — какие считаются прозвоненными ──
+var CALLED_STATUSES = ['ndz','skip','srez','dok','ao','ne_tot','ne_zanim','ne_rabotaet','drugoe'];
+// (т.е. всё кроме 'ne_zvonili' и 'neprobil')
+
+function isCalled(statusKey) {
+  return CALLED_STATUSES.indexOf(statusKey) !== -1;
 }
 
 // ══════════════════════════════════════════════════
-// STATUSES — EXTENDED
+// STATUSES
 // ══════════════════════════════════════════════════
 var STATUS_LIST = [
   {key:'ne_zvonili', label:'Не звонил (он 1-й)', color:'#c8a8ff'},
@@ -675,56 +729,52 @@ var STATUS_LIST = [
   {key:'drugoe',     label:'Другое',               color:'#6688aa'},
 ];
 
+// Какой CSS-класс навешивать на span в редакторе по статусу
+function getEditorClass(statusKey) {
+  var classMap = {
+    'ndz':    'status-ndz',
+    'srez':   'status-srez',
+    'dok':    'status-dok',
+    'ao':     'status-ao',
+  };
+  return classMap[statusKey] || '';
+}
+
 // ══════════════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════════════
 var STORAGE_KEY = 'probiv_v4_data';
-var notebooks = [];
-var activeNotebookId = null;
-var renameTargetId = null;
-var currentPhonesList = [];
+var notebooks = [], activeNotebookId = null, renameTargetId = null, currentPhonesList = [];
 
-function loadState() {
-  try { var r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r); } catch(e){}
-  return null;
-}
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({notebooks: notebooks, activeNotebookId: activeNotebookId}));
-  } catch(e){}
-}
-function getActiveNotebook() {
-  for (var i=0;i<notebooks.length;i++) if (notebooks[i].id===activeNotebookId) return notebooks[i];
-  return notebooks[0];
-}
-function createNotebook(name) {
-  var id = 'nb_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  var nb = {id:id, name:name||('Блокнот '+(notebooks.length+1)), text:'', statuses:{}};
-  notebooks.push(nb);
-  return nb;
-}
+function loadState(){try{var r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch(e){}return null;}
+function saveState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({notebooks:notebooks,activeNotebookId:activeNotebookId}));}catch(e){}}
+function getActiveNotebook(){for(var i=0;i<notebooks.length;i++)if(notebooks[i].id===activeNotebookId)return notebooks[i];return notebooks[0];}
+function createNotebook(name){var id='nb_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);var nb={id:id,name:name||('Блокнот '+(notebooks.length+1)),text:'',statuses:{}};notebooks.push(nb);return nb;}
 
 // ══════════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════════
 function normalizePhone(str) {
   var d = str.replace(/\D/g,'');
-  if (d.length===11 && (d[0]==='7'||d[0]==='8')) return '7'+d.slice(1);
+  if (d.length===11&&(d[0]==='7'||d[0]==='8')) return '7'+d.slice(1);
   if (d.length===10) return '7'+d;
+  if (d.length===12&&d.startsWith('375')) return d; // Беларусь
+  if (d.length===12&&d.startsWith('380')) return d; // Украина
+  if (d.length===11&&d.startsWith('77')) return d;  // Казахстан
+  if (d.length===11&&d.startsWith('76')) return d;  // Казахстан
+  if (d.length > 9) return d;
   return null;
 }
 function formatPhone(norm) {
-  if (!norm||norm.length!==11) return norm;
-  return '+7 ('+norm.slice(1,4)+') '+norm.slice(4,7)+'-'+norm.slice(7,9)+'-'+norm.slice(9);
+  if (!norm) return norm;
+  if (norm.length===11&&norm[0]==='7') return '+7 ('+norm.slice(1,4)+') '+norm.slice(4,7)+'-'+norm.slice(7,9)+'-'+norm.slice(9);
+  if (norm.startsWith('375')&&norm.length===12) return '+375 ('+norm.slice(3,5)+') '+norm.slice(5,8)+'-'+norm.slice(8,10)+'-'+norm.slice(10);
+  if (norm.startsWith('380')&&norm.length===12) return '+380 ('+norm.slice(3,5)+') '+norm.slice(5,8)+'-'+norm.slice(8,10)+'-'+norm.slice(10);
+  return '+'+norm;
 }
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function showToast(msg) {
-  var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(function(){t.classList.remove('show');},2200);
-}
-function getPhoneRegex() { return /(?:\+7|8|7)[\s\-(]?\d{3}[\s\-)]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g; }
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2200);}
+function getPhoneRegex(){return /(?:\+7|8|7|\+375|\+380)[\s\-(]?\d{2,3}[\s\-)]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g;}
 
 // ══════════════════════════════════════════════════
 // TABS
@@ -732,103 +782,46 @@ function getPhoneRegex() { return /(?:\+7|8|7)[\s\-(]?\d{3}[\s\-)]?\d{3}[\s\-]?\
 function renderTabs() {
   var scroll = document.getElementById('tabsScroll');
   scroll.innerHTML = '';
-  for (var i=0; i<notebooks.length; i++) {
-    var nb = notebooks[i];
-    var isActive = nb.id === activeNotebookId;
-    var cnt = countPhones(nb.text);
-    var tab = document.createElement('div');
-    tab.className = 'tab' + (isActive ? ' active' : '');
-    tab.dataset.id = nb.id;
-    tab.innerHTML =
-      '<input class="tab-label" value="'+escHtml(nb.name)+'" spellcheck="false" id="label_'+nb.id+'" readonly>' +
-      (cnt > 0 ? '<span class="tab-count">'+cnt+'</span>' : '') +
-      (notebooks.length > 1 ? '<button class="tab-close" title="Закрыть">×</button>' : '');
-    (function(nbId, tabEl, isAct) {
-      tabEl.addEventListener('click', function(e) {
-        if (e.target.classList.contains('tab-close')) { deleteNotebook(nbId); return; }
-        if (e.target.classList.contains('tab-label') && isAct) return;
+  for (var i=0;i<notebooks.length;i++) {
+    var nb=notebooks[i], isActive=nb.id===activeNotebookId;
+    var cnt=countPhones(nb.text);
+    var tab=document.createElement('div');
+    tab.className='tab'+(isActive?' active':'');
+    tab.dataset.id=nb.id;
+    tab.innerHTML='<input class="tab-label" value="'+escHtml(nb.name)+'" spellcheck="false" id="label_'+nb.id+'" readonly>'+
+      (cnt>0?'<span class="tab-count">'+cnt+'</span>':'')+
+      (notebooks.length>1?'<button class="tab-close" title="Закрыть">×</button>':'');
+    (function(nbId,tabEl,isAct){
+      tabEl.addEventListener('click',function(e){
+        if(e.target.classList.contains('tab-close')){deleteNotebook(nbId);return;}
+        if(e.target.classList.contains('tab-label')&&isAct)return;
         switchToNotebook(nbId);
       });
-      var lbl = tabEl.querySelector('.tab-label');
-      if (isAct) {
-        lbl.removeAttribute('readonly');
-        lbl.addEventListener('click', function(e){ e.stopPropagation(); });
-        lbl.addEventListener('blur', function(){ renameNotebookInline(nbId, lbl.value); });
-        lbl.addEventListener('keydown', function(e){ if(e.key==='Enter'){e.preventDefault();lbl.blur();} });
-      }
-    })(nb.id, tab, isActive);
+      var lbl=tabEl.querySelector('.tab-label');
+      if(isAct){lbl.removeAttribute('readonly');lbl.addEventListener('click',function(e){e.stopPropagation();});lbl.addEventListener('blur',function(){renameNotebookInline(nbId,lbl.value);});lbl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();lbl.blur();}});}
+    })(nb.id,tab,isActive);
     scroll.appendChild(tab);
   }
-  var activeTab = scroll.querySelector('.tab.active');
-  if (activeTab) activeTab.scrollIntoView({block:'nearest', inline:'nearest'});
+  var activeTab=scroll.querySelector('.tab.active');
+  if(activeTab)activeTab.scrollIntoView({block:'nearest',inline:'nearest'});
 }
-
-function countPhones(text) {
-  var r = getPhoneRegex(); var u = new Set(); var m;
-  while((m=r.exec(text))!==null){var n=normalizePhone(m[0]);if(n)u.add(n);}
-  return u.size;
-}
-function renameNotebookInline(id, val) {
-  val = (val||'').trim();
-  var nb = notebooks.find(function(n){return n.id===id;});
-  if (nb && val) { nb.name = val; saveState(); renderTabs(); }
-}
-function createNewNotebook() {
-  var nb = createNotebook('Блокнот '+(notebooks.length+1));
-  activeNotebookId = nb.id;
-  saveState(); renderTabs(); loadNotebookIntoEditor(nb);
-  showToast('✅ Создан: '+nb.name);
-  setTimeout(function(){
-    var last = document.getElementById('tabsScroll').lastElementChild;
-    if(last) last.scrollIntoView({inline:'end'});
-  },50);
-}
-function switchToNotebook(id) {
-  saveCurrentEditorText();
-  activeNotebookId = id; saveState();
-  var nb = notebooks.find(function(n){return n.id===id;});
-  if (nb) loadNotebookIntoEditor(nb);
-  renderTabs();
-}
-function deleteNotebook(id) {
-  if (notebooks.length<=1) {showToast('❌ Нельзя удалить последний блокнот'); return;}
-  if (!confirm('Удалить блокнот?')) return;
-  var idx = notebooks.findIndex(function(n){return n.id===id;});
-  notebooks.splice(idx,1);
-  if (activeNotebookId===id) activeNotebookId = notebooks[Math.max(0,idx-1)].id;
-  saveState(); renderTabs();
-  loadNotebookIntoEditor(getActiveNotebook());
-  showToast('🗑 Удалено');
-}
-function saveCurrentEditorText() {
-  var nb = getActiveNotebook();
-  if (nb) nb.text = document.getElementById('editable').innerText;
-}
-function loadNotebookIntoEditor(nb) {
-  var editor = document.getElementById('editable');
-  editor.innerText = nb.text || '';
-  document.getElementById('notebookName').textContent = nb.name;
-  parseAndUpdate();
-}
+function countPhones(text){var r=getPhoneRegex();var u=new Set();var m;while((m=r.exec(text))!==null){var n=normalizePhone(m[0]);if(n)u.add(n);}return u.size;}
+function renameNotebookInline(id,val){val=(val||'').trim();var nb=notebooks.find(function(n){return n.id===id;});if(nb&&val){nb.name=val;saveState();renderTabs();}}
+function createNewNotebook(){var nb=createNotebook('Блокнот '+(notebooks.length+1));activeNotebookId=nb.id;saveState();renderTabs();loadNotebookIntoEditor(nb);showToast('✅ Создан: '+nb.name);setTimeout(function(){var last=document.getElementById('tabsScroll').lastElementChild;if(last)last.scrollIntoView({inline:'end'});},50);}
+function switchToNotebook(id){saveCurrentEditorText();activeNotebookId=id;saveState();var nb=notebooks.find(function(n){return n.id===id;});if(nb)loadNotebookIntoEditor(nb);renderTabs();}
+function deleteNotebook(id){if(notebooks.length<=1){showToast('❌ Нельзя удалить последний блокнот');return;}if(!confirm('Удалить блокнот?'))return;var idx=notebooks.findIndex(function(n){return n.id===id;});notebooks.splice(idx,1);if(activeNotebookId===id)activeNotebookId=notebooks[Math.max(0,idx-1)].id;saveState();renderTabs();loadNotebookIntoEditor(getActiveNotebook());showToast('🗑 Удалено');}
+function saveCurrentEditorText(){var nb=getActiveNotebook();if(nb)nb.text=document.getElementById('editable').innerText;}
+function loadNotebookIntoEditor(nb){var editor=document.getElementById('editable');editor.innerText=nb.text||'';document.getElementById('notebookName').textContent=nb.name;parseAndUpdate();}
 
 // ══════════════════════════════════════════════════
 // RENAME MODAL
 // ══════════════════════════════════════════════════
-function closeModal() { document.getElementById('renameModal').classList.remove('open'); renameTargetId=null; }
-function confirmRename() {
-  var val = document.getElementById('renameInput').value.trim();
-  if (val && renameTargetId) {
-    var nb = notebooks.find(function(n){return n.id===renameTargetId;});
-    if (nb){ nb.name=val; saveState(); renderTabs(); }
-  }
-  closeModal();
-}
-document.getElementById('renameModal').addEventListener('click', function(e){
-  if (e.target===document.getElementById('renameModal')) closeModal();
-});
+function closeModal(){document.getElementById('renameModal').classList.remove('open');renameTargetId=null;}
+function confirmRename(){var val=document.getElementById('renameInput').value.trim();if(val&&renameTargetId){var nb=notebooks.find(function(n){return n.id===renameTargetId;});if(nb){nb.name=val;saveState();renderTabs();}}closeModal();}
+document.getElementById('renameModal').addEventListener('click',function(e){if(e.target===document.getElementById('renameModal'))closeModal();});
 
 // ══════════════════════════════════════════════════
-// EDITOR HIGHLIGHTING
+// EDITOR HIGHLIGHTING — с меткой прозвонен
 // ══════════════════════════════════════════════════
 var isHighlighting = false;
 
@@ -836,10 +829,7 @@ function highlightPhonesInEditor() {
   var editor = document.getElementById('editable');
   if (isHighlighting) return;
   isHighlighting = true;
-
-  // Сохраняем позицию скролла редактора
   var savedScrollTop = editor.scrollTop;
-
   var sel = window.getSelection();
   var savedAnchor = null, savedOffset = 0;
   if (sel && sel.rangeCount > 0) {
@@ -847,37 +837,33 @@ function highlightPhonesInEditor() {
     savedAnchor = range.startContainer;
     savedOffset = range.startOffset;
   }
-
+  var nb = getActiveNotebook();
   var phoneRegex = getPhoneRegex();
-
   var walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null, false);
   var textNodes = [];
   var node;
   while ((node = walker.nextNode())) {
-    if (!node.parentElement.classList.contains('phone-highlight')) {
-      textNodes.push(node);
-    }
+    if (!node.parentElement.classList.contains('phone-highlight')) textNodes.push(node);
   }
-
-  for (var i = 0; i < textNodes.length; i++) {
+  for (var i=0;i<textNodes.length;i++) {
     var tn = textNodes[i];
     var txt = tn.nodeValue;
     phoneRegex.lastIndex = 0;
     if (!phoneRegex.test(txt)) continue;
     phoneRegex.lastIndex = 0;
-
     var frag = document.createDocumentFragment();
     var lastIdx = 0;
     var m;
     while ((m = phoneRegex.exec(txt)) !== null) {
       var norm = normalizePhone(m[0]);
       if (!norm) continue;
-      if (m.index > lastIdx) {
-        frag.appendChild(document.createTextNode(txt.slice(lastIdx, m.index)));
-      }
+      if (m.index > lastIdx) frag.appendChild(document.createTextNode(txt.slice(lastIdx, m.index)));
       var op = getOperatorInfo(norm);
+      var stKey = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
+      var called = isCalled(stKey);
+      var extraClass = getEditorClass(stKey);
       var span = document.createElement('span');
-      span.className = 'phone-highlight';
+      span.className = 'phone-highlight' + (called ? ' called' : '') + (extraClass ? ' '+extraClass : '');
       span.style.cssText = 'background:'+op[2]+';color:'+op[1]+';border-color:'+op[3]+';';
       span.dataset.norm = norm;
       span.textContent = m[0];
@@ -888,53 +874,57 @@ function highlightPhonesInEditor() {
     if (lastIdx < txt.length) frag.appendChild(document.createTextNode(txt.slice(lastIdx)));
     if (tn.parentNode) tn.parentNode.replaceChild(frag, tn);
   }
-
-  // Восстанавливаем курсор
   try {
     if (savedAnchor && document.body.contains(savedAnchor)) {
       var newRange = document.createRange();
-      var maxOff = savedAnchor.nodeType === 3 ? savedAnchor.nodeValue.length : savedAnchor.childNodes.length;
+      var maxOff = savedAnchor.nodeType===3 ? savedAnchor.nodeValue.length : savedAnchor.childNodes.length;
       newRange.setStart(savedAnchor, Math.min(savedOffset, maxOff));
       newRange.collapse(true);
       sel.removeAllRanges();
       sel.addRange(newRange);
     }
   } catch(e) {}
-
-  // Восстанавливаем скролл редактора — предотвращает прыжок
   editor.scrollTop = savedScrollTop;
-
   isHighlighting = false;
+}
+
+// Обновить классы уже существующих span без перерисовки (быстрый путь при смене статуса)
+function updateSpanClasses() {
+  var nb = getActiveNotebook();
+  var editor = document.getElementById('editable');
+  var spans = editor.querySelectorAll('.phone-highlight[data-norm]');
+  spans.forEach(function(span) {
+    var norm = span.dataset.norm;
+    var stKey = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
+    var called = isCalled(stKey);
+    var extraClass = getEditorClass(stKey);
+    span.classList.toggle('called', called);
+    // сбросить старые статусные классы
+    ['status-ndz','status-srez','status-dok','status-ao'].forEach(function(c){ span.classList.remove(c); });
+    if (extraClass) span.classList.add(extraClass);
+  });
 }
 
 function scrollToCard(norm) {
   var card = document.querySelector('[data-card-norm="'+norm+'"]');
-  if (card) {
-    card.scrollIntoView({behavior:'smooth', block:'center'});
-    card.style.outline = '2px solid var(--accent)';
-    setTimeout(function(){ card.style.outline=''; }, 1500);
-  }
+  if (card) {card.scrollIntoView({behavior:'smooth',block:'center'});card.style.outline='2px solid var(--accent)';setTimeout(function(){card.style.outline='';},1500);}
   var nb = getActiveNotebook();
   var op = getOperatorInfo(norm);
-  var st = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
-  var stObj = STATUS_LIST.find(function(s){return s.key===st;}) || STATUS_LIST[0];
+  var st = (nb.statuses&&nb.statuses[norm])||'ne_zvonili';
+  var stObj = STATUS_LIST.find(function(s){return s.key===st;})||STATUS_LIST[0];
   showToast('📞 '+formatPhone(norm)+' · '+op[0]+' · '+stObj.label);
 }
 
 window.findInEditorText = function(norm) {
   var editor = document.getElementById('editable');
-  editor.querySelectorAll('.phone-highlight.highlighted-find').forEach(function(el){
-    el.classList.remove('highlighted-find');
-  });
+  editor.querySelectorAll('.phone-highlight.highlighted-find').forEach(function(el){el.classList.remove('highlighted-find');});
   var target = editor.querySelector('.phone-highlight[data-norm="'+norm+'"]');
   if (target) {
-    target.scrollIntoView({behavior:'smooth', block:'center'});
+    target.scrollIntoView({behavior:'smooth',block:'center'});
     target.classList.add('highlighted-find');
-    setTimeout(function(){ target.classList.remove('highlighted-find'); }, 2500);
+    setTimeout(function(){target.classList.remove('highlighted-find');},2500);
     showToast('🔍 Найден: '+formatPhone(norm));
-  } else {
-    showToast('❌ Не найден в тексте');
-  }
+  } else { showToast('❌ Не найден в тексте'); }
 };
 
 // ══════════════════════════════════════════════════
@@ -945,6 +935,10 @@ window.setPhoneStatus = function(norm, statusKey) {
   if (!nb.statuses) nb.statuses = {};
   nb.statuses[norm] = statusKey;
   saveState();
+  // Быстрый путь: только обновляем классы span, не перерисовываем всё
+  updateSpanClasses();
+  // Обновляем счётчик прозвоненных
+  updateCalledCount();
   var resultsEl = document.getElementById('results');
   var savedScroll = resultsEl ? resultsEl.scrollTop : 0;
   var pageScroll = window.scrollY;
@@ -955,39 +949,47 @@ window.setPhoneStatus = function(norm, statusKey) {
   window.scrollTo(0, pageScroll);
 };
 
+function updateCalledCount() {
+  var nb = getActiveNotebook();
+  var cnt = 0;
+  currentPhonesList.forEach(function(ph){
+    if (isCalled((nb.statuses&&nb.statuses[ph.norm])||'ne_zvonili')) cnt++;
+  });
+  document.getElementById('calledCount').textContent = cnt;
+}
+
 // ══════════════════════════════════════════════════
 // RESULTS PANEL
 // ══════════════════════════════════════════════════
 function renderResultsPanel(phones) {
   var container = document.getElementById('results');
   document.getElementById('resultCount').textContent = phones.length;
-  if (!phones.length) {
-    container.innerHTML = '<div class="empty-state">📡 Вставьте текст с номерами<br>в блокнот слева</div>';
-    return;
-  }
+  if (!phones.length) { container.innerHTML='<div class="empty-state">📡 Вставьте текст с номерами<br>в блокнот слева</div>'; return; }
   var nb = getActiveNotebook();
   var html = '';
-  for (var i=0; i<phones.length; i++) {
-    var ph = phones[i];
-    var norm = ph.norm;
+  for (var i=0;i<phones.length;i++) {
+    var ph = phones[i], norm = ph.norm;
     var op = getOperatorInfo(norm);
-    var currentSt = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
-    var stObj = STATUS_LIST.find(function(s){return s.key===currentSt;}) || STATUS_LIST[0];
+    var currentSt = (nb.statuses&&nb.statuses[norm])||'ne_zvonili';
+    var stObj = STATUS_LIST.find(function(s){return s.key===currentSt;})||STATUS_LIST[0];
+    var called = isCalled(currentSt);
+    var regionTag = op[4] ? '<span class="region-tag">'+op[4]+'</span>' : '';
     var stBtns = '';
-    for (var j=0; j<STATUS_LIST.length; j++) {
+    for (var j=0;j<STATUS_LIST.length;j++) {
       var st = STATUS_LIST[j];
-      var isAct = st.key === currentSt;
-      stBtns += '<button class="status-btn'+(isAct?' active':'')+'" style="color:'+st.color+';border-color:'+st.color+'40;" onclick="setPhoneStatus(\''+norm+'\',\''+st.key+'\')">' +
+      var isAct = st.key===currentSt;
+      stBtns += '<button class="status-btn'+(isAct?' active':'')+'" style="color:'+st.color+';border-color:'+st.color+'40;" onclick="setPhoneStatus(\''+norm+'\',\''+st.key+'\')">'+
         '<span class="status-dot" style="background:'+st.color+'"></span>'+st.label+'</button>';
     }
-    html += '<div class="phone-card" data-card-norm="'+norm+'" style="--card-color:'+op[1]+';--op-bg:'+op[2]+';--op-color:'+op[1]+';--op-border:'+op[3]+'">' +
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-        '<span class="phone-number">📞 '+formatPhone(norm)+'</span>' +
-        '<span class="operator-tag">'+op[0]+'</span>' +
-        '<span class="status-tag" style="background:'+stObj.color+'22;color:'+stObj.color+';border:1px solid '+stObj.color+'44;">'+stObj.label+'</span>' +
-        '<button class="find-btn" onclick="findInEditorText(\''+norm+'\')" style="margin-left:auto;">🔍 Найти</button>' +
-      '</div>' +
-      '<div class="status-selector">'+stBtns+'</div>' +
+    html += '<div class="phone-card'+(called?' called-card':'')+'" data-card-norm="'+norm+'" style="--card-color:'+op[1]+';--op-bg:'+op[2]+';--op-color:'+op[1]+';--op-border:'+op[3]+'">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+
+        '<span class="phone-number">📞 '+formatPhone(norm)+'</span>'+
+        '<span class="operator-tag">'+op[0]+'</span>'+
+        regionTag+
+        '<span class="status-tag" style="background:'+stObj.color+'22;color:'+stObj.color+';border:1px solid '+stObj.color+'44;">'+stObj.label+'</span>'+
+        '<button class="find-btn" onclick="findInEditorText(\''+norm+'\')" style="margin-left:auto;">🔍 Найти</button>'+
+      '</div>'+
+      '<div class="status-selector">'+stBtns+'</div>'+
     '</div>';
   }
   container.innerHTML = html;
@@ -998,15 +1000,14 @@ function renderResultsPanel(phones) {
 // ══════════════════════════════════════════════════
 function renderBottomStats(phones) {
   var container = document.getElementById('bottomStats');
-  if (!phones.length) { container.innerHTML=''; return; }
+  if (!phones.length){container.innerHTML='';return;}
   var nb = getActiveNotebook();
-  var opMap = {};
-  var stCount = {};
-  STATUS_LIST.forEach(function(s){ stCount[s.key]=0; });
-  for (var i=0; i<phones.length; i++) {
+  var opMap = {}, stCount = {};
+  STATUS_LIST.forEach(function(s){stCount[s.key]=0;});
+  for (var i=0;i<phones.length;i++) {
     var opName = getOperatorInfo(phones[i].norm)[0];
     opMap[opName] = (opMap[opName]||0)+1;
-    var st = (nb.statuses && nb.statuses[phones[i].norm]) || 'ne_zvonili';
+    var st = (nb.statuses&&nb.statuses[phones[i].norm])||'ne_zvonili';
     if (stCount.hasOwnProperty(st)) stCount[st]++;
   }
   var total = phones.length;
@@ -1017,13 +1018,11 @@ function renderBottomStats(phones) {
   }
   opHtml += '</div></div>';
   var stHtml = '<div style="flex:2;min-width:260px;"><strong style="font-size:0.75rem;">🏷 Статусы</strong><div style="margin-top:8px;">';
-  for (var k=0; k<STATUS_LIST.length; k++) {
-    var s = STATUS_LIST[k];
-    var cnt = stCount[s.key];
-    var p = total ? (cnt/total)*100 : 0;
-    stHtml += '<div class="stat-bar"><span style="width:148px;color:'+s.color+';font-weight:600;font-size:0.68rem;">'+s.label+'</span>' +
-      '<div class="bar-container"><div class="bar" style="width:'+p+'%;background:'+s.color+'"></div></div>' +
-      '<span style="width:28px;text-align:right;font-weight:700;">'+cnt+'</span>' +
+  for (var k=0;k<STATUS_LIST.length;k++) {
+    var s=STATUS_LIST[k], cnt=stCount[s.key], p=total?(cnt/total)*100:0;
+    stHtml += '<div class="stat-bar"><span style="width:148px;color:'+s.color+';font-weight:600;font-size:0.68rem;">'+s.label+'</span>'+
+      '<div class="bar-container"><div class="bar" style="width:'+p+'%;background:'+s.color+'"></div></div>'+
+      '<span style="width:28px;text-align:right;font-weight:700;">'+cnt+'</span>'+
       '<span style="width:36px;text-align:right;font-size:0.62rem;color:var(--text2);">'+Math.round(p)+'%</span></div>';
   }
   stHtml += '</div></div>';
@@ -1037,23 +1036,18 @@ function parseAndUpdate() {
   var editor = document.getElementById('editable');
   var rawText = editor.innerText;
   document.getElementById('charCount').textContent = rawText.length;
-
   var r = getPhoneRegex();
-  var uniqueMap = {};
-  var order = [];
-  var m;
+  var uniqueMap = {}, order = [], m;
   while ((m = r.exec(rawText)) !== null) {
     var norm = normalizePhone(m[0]);
     if (norm && !uniqueMap.hasOwnProperty(norm)) { uniqueMap[norm]=m[0]; order.push(norm); }
   }
-
-  var phones = order.map(function(n){ return {norm:n, rawStr:uniqueMap[n]}; });
+  var phones = order.map(function(n){return{norm:n,rawStr:uniqueMap[n]};});
   currentPhonesList = phones;
   document.getElementById('foundCount').textContent = phones.length;
-
   var nb = getActiveNotebook();
   if (!nb.statuses) nb.statuses = {};
-  for (var i=0; i<phones.length; i++) {
+  for (var i=0;i<phones.length;i++) {
     if (!nb.statuses.hasOwnProperty(phones[i].norm)) nb.statuses[phones[i].norm] = 'ne_zvonili';
   }
   for (var norm in nb.statuses) {
@@ -1061,8 +1055,8 @@ function parseAndUpdate() {
   }
   nb.text = rawText;
   saveState();
-
   highlightPhonesInEditor();
+  updateCalledCount();
   renderResultsPanel(phones);
   renderBottomStats(phones);
   renderTabs();
@@ -1074,19 +1068,19 @@ function parseAndUpdate() {
 window.exportData = function() {
   var nb = getActiveNotebook();
   var lines = ['=== '+nb.name+' ===',''];
-  var r = getPhoneRegex(); var found = {}; var order = []; var m;
+  var r=getPhoneRegex();var found={};var order=[];var m;
   while((m=r.exec(nb.text||''))!==null){var n=normalizePhone(m[0]);if(n&&!found[n]){found[n]=m[0];order.push(n);}}
-  for (var i=0; i<order.length; i++) {
-    var norm = order[i];
-    var op = getOperatorInfo(norm);
-    var stKey = (nb.statuses && nb.statuses[norm]) || 'ne_zvonili';
-    var stObj = STATUS_LIST.find(function(s){return s.key===stKey;});
-    lines.push(formatPhone(norm)+'\t'+op[0]+'\t'+(stObj?stObj.label:'?'));
+  for (var i=0;i<order.length;i++) {
+    var norm=order[i], op=getOperatorInfo(norm);
+    var stKey=(nb.statuses&&nb.statuses[norm])||'ne_zvonili';
+    var stObj=STATUS_LIST.find(function(s){return s.key===stKey;});
+    var calledMark=isCalled(stKey)?'[✓]':'[ ]';
+    lines.push(calledMark+'\t'+formatPhone(norm)+'\t'+op[0]+(op[4]?' ('+op[4]+')':'')+'\t'+(stObj?stObj.label:'?'));
   }
-  var blob = new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = nb.name.replace(/[^а-яёa-z0-9]/gi,'_')+'_'+Date.now()+'.txt';
+  var blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=nb.name.replace(/[^а-яёa-z0-9]/gi,'_')+'_'+Date.now()+'.txt';
   a.click();
   showToast('💾 Экспорт готов!');
 };
@@ -1095,29 +1089,23 @@ window.exportData = function() {
 // INIT
 // ══════════════════════════════════════════════════
 var debounceTimer;
-function onEditorInput() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(parseAndUpdate, 120);
-}
+function onEditorInput() {clearTimeout(debounceTimer);debounceTimer=setTimeout(parseAndUpdate,120);}
 
 window.onload = function() {
   var saved = loadState();
-  if (saved && saved.notebooks && saved.notebooks.length > 0) {
-    notebooks = saved.notebooks;
-    activeNotebookId = saved.activeNotebookId;
-    if (!notebooks.find(function(n){return n.id===activeNotebookId;})) activeNotebookId = notebooks[0].id;
+  if (saved && saved.notebooks && saved.notebooks.length>0) {
+    notebooks = saved.notebooks; activeNotebookId = saved.activeNotebookId;
+    if (!notebooks.find(function(n){return n.id===activeNotebookId;})) activeNotebookId=notebooks[0].id;
   } else {
     var nb = createNotebook('Блокнот 1');
-    nb.text = '+7 (916) 123-45-67\n8-905-777-88-99\n+79261234567\n89501234567';
-    activeNotebookId = nb.id;
-    saveState();
+    nb.text = '+7 (916) 123-45-67\n8-905-777-88-99\n+79261234567\n89501234567\n+375 29 123-45-67';
+    activeNotebookId = nb.id; saveState();
   }
   renderTabs();
   var nb = getActiveNotebook();
   var editor = document.getElementById('editable');
-  editor.innerText = nb.text || '';
+  editor.innerText = nb.text||'';
   document.getElementById('notebookName').textContent = nb.name;
-
   editor.addEventListener('input', onEditorInput);
   editor.addEventListener('paste', function(e) {
     e.preventDefault();
@@ -1129,65 +1117,21 @@ window.onload = function() {
 };
 
 // ══════════════════════════════════════════════════
-// RESIZER — drag to resize notebook vs results (horizontal only)
+// RESIZER
 // ══════════════════════════════════════════════════
 (function() {
-  var layout = document.getElementById('mainLayout');
-  var resizer = document.getElementById('resizer');
-  if (!resizer || !layout) return;
-
-  var dragging = false;
-
-  function getPct() {
-    var stored = parseFloat(localStorage.getItem('skl_split'));
-    return (stored > 15 && stored < 85) ? stored : 50;
-  }
-  function setPct(pct) {
-    pct = Math.max(15, Math.min(85, pct));
-    layout.style.setProperty('--split', pct + '%');
-    resizer.style.left = pct + '%';
-    localStorage.setItem('skl_split', pct);
-  }
-
+  var layout=document.getElementById('mainLayout'), resizer=document.getElementById('resizer');
+  if(!resizer||!layout) return;
+  var dragging=false;
+  function getPct(){var s=parseFloat(localStorage.getItem('skl_split'));return(s>15&&s<85)?s:50;}
+  function setPct(pct){pct=Math.max(15,Math.min(85,pct));layout.style.setProperty('--split',pct+'%');resizer.style.left=pct+'%';localStorage.setItem('skl_split',pct);}
   setPct(getPct());
-
-  resizer.addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    dragging = true;
-    resizer.classList.add('dragging');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var layoutRect = layout.getBoundingClientRect();
-    var pct = ((e.clientX - layoutRect.left) / layoutRect.width) * 100;
-    setPct(pct);
-  });
-
-  document.addEventListener('mouseup', function() {
-    if (!dragging) return;
-    dragging = false;
-    resizer.classList.remove('dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  });
-
-  resizer.addEventListener('touchstart', function(e) {
-    dragging = true;
-    resizer.classList.add('dragging');
-  }, {passive: true});
-  document.addEventListener('touchmove', function(e) {
-    if (!dragging) return;
-    var layoutRect = layout.getBoundingClientRect();
-    var pct = ((e.touches[0].clientX - layoutRect.left) / layoutRect.width) * 100;
-    setPct(pct);
-  }, {passive: true});
-  document.addEventListener('touchend', function() {
-    dragging = false;
-    resizer.classList.remove('dragging');
-  });
+  resizer.addEventListener('mousedown',function(e){e.preventDefault();dragging=true;resizer.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';});
+  document.addEventListener('mousemove',function(e){if(!dragging)return;var r=layout.getBoundingClientRect();setPct(((e.clientX-r.left)/r.width)*100);});
+  document.addEventListener('mouseup',function(){if(!dragging)return;dragging=false;resizer.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';});
+  resizer.addEventListener('touchstart',function(){dragging=true;resizer.classList.add('dragging');},{passive:true});
+  document.addEventListener('touchmove',function(e){if(!dragging)return;var r=layout.getBoundingClientRect();setPct(((e.touches[0].clientX-r.left)/r.width)*100);},{passive:true});
+  document.addEventListener('touchend',function(){dragging=false;resizer.classList.remove('dragging');});
 })();
 </script>
 </body>
